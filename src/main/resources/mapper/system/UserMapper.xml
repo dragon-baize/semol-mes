@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.system.mapper.UserMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.system.vo.PageUser">
+        SELECT
+            u.id,
+            u.username,
+            u.type,
+            u.real_name,
+            u.gender,
+            u.phone,
+            u.email,
+            u.status,
+            u.on_job,
+            u.remarks,
+            u.sort,
+            u.entry_date,
+            u.job_no,
+            u.dept_id,
+            d.title AS deptTitle,
+            u.position_id,
+            p.title AS positionTitle,
+            u.leader_id,
+            u.create_time,
+            u.create_user,
+            u.update_time,
+            u.update_user
+        FROM
+            sys_user u
+                LEFT JOIN sys_dept d ON u.dept_id = d.id
+                LEFT JOIN sys_position p ON u.position_id = p.id
+        WHERE
+            u.deleted = 0
+            <if test="user.id != null">
+                AND u.id = #{user.id}
+            </if>
+            <if test="user.username != null and user.username != ''">
+                AND u.username = #{user.username}
+            </if>
+            <if test="user.type != null">
+                AND u.type IN (#{user.type}, 2)
+            </if>
+            <if test="user.realName != null and user.realName != ''">
+                AND u.real_name = #{user.realName}
+            </if>
+            <if test="user.gender != null">
+                AND u.gender = #{user.gender}
+            </if>
+            <if test="user.phone != null and user.phone != ''">
+                AND u.phone = #{user.phone}
+            </if>
+            <if test="user.status != null">
+                AND u.status = #{user.status}
+            </if>
+            <if test="user.onJob != null">
+                AND u.on_job = #{user.onJob}
+            </if>
+            <if test="user.entryDate != null">
+                AND u.entry_date = #{user.entryDate}
+            </if>
+            <if test="user.jobNo != null and user.jobNo != ''">
+                AND u.job_no = #{user.jobNo}
+            </if>
+            <if test="user.deptId != null">
+                AND u.dept_id IN (
+                    WITH recursive temp AS (
+                        SELECT
+                            a.id
+                        FROM
+                            sys_dept a
+                        WHERE
+                            a.id = #{user.deptId}
+                        UNION ALL
+                        SELECT
+                            b.id
+                        FROM
+                            sys_dept b
+                        INNER JOIN temp t ON b.pid = t.id
+                    )
+                        SELECT
+                            id
+                        FROM
+                            temp
+                )
+            </if>
+            <if test="user.positionId != null">
+                AND u.position_id = #{user.positionId}
+            </if>
+            <if test="user.leaderId != null">
+                AND u.leader_id = #{user.leaderId}
+            </if>
+            <if test="user.createUser != null">
+                AND u.create_user = #{user.createUser}
+            </if>
+            <if test="user.updateUser != null">
+                AND u.update_user = #{user.updateUser}
+            </if>
+            ORDER BY u.sort, u.create_time DESC
+    </select>
+
+    <select id="getByIdOrDel" resultType="com.senmol.mes.system.entity.UserEntity">
+        SELECT
+            u.id,
+            u.username,
+            u.type,
+            u.real_name,
+            u.gender,
+            u.phone,
+            u.email,
+            u.status,
+            u.on_job,
+            u.remarks,
+            u.sort,
+            u.entry_date,
+            u.job_no,
+            u.dept_id,
+            u.position_id,
+            u.leader_id,
+            u.create_time,
+            u.create_user,
+            u.update_time,
+            u.update_user
+        FROM
+            sys_user u
+        WHERE
+            u.id = #{id}
+    </select>
+
+</mapper>
+

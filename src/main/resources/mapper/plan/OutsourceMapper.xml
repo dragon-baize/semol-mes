@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.OutsourceMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.entity.OutsourceEntity">
+        SELECT
+            o.id,
+            o.title,
+            o.code,
+            o.order_no,
+            so.code AS orderCode,
+            o.supplier_id,
+            o.product_id,
+            p.code AS productCode,
+            p.title AS productTitle,
+            p.yield,
+            o.expect_date,
+            o.delivery_date,
+            o.cycle,
+            o.qty,
+            o.storage_qty,
+            o.mrp,
+            o.is_create,
+            o.price,
+            o.tax_rate,
+            o.tax_price,
+            o.status,
+            o.create_time,
+            o.create_user,
+            o.update_time,
+            o.update_user
+        FROM
+            plan_outsource o
+            LEFT JOIN produce_product p on o.product_id = p.id
+            LEFT JOIN plan_sale_order so ON o.order_no = so.id
+        WHERE
+            o.deleted = 0
+          AND p.deleted = 0
+          AND so.deleted = 0
+        <if test="out.id != null">
+            AND o.id = #{out.id}
+        </if>
+        <if test="out.title != null and out.title != ''">
+            AND o.title LIKE CONCAT('%', #{out.title}, '%')
+        </if>
+        <if test="out.code != null and out.code != ''">
+            AND o.code LIKE CONCAT('%', #{out.code}, '%')
+        </if>
+        <if test="out.productLineId != null">
+            AND p.product_line_id = #{out.productLineId}
+        </if>
+        <if test="out.orderNo != null and out.orderNo != ''">
+            AND o.order_no = #{out.orderNo}
+        </if>
+        <if test="out.productId != null">
+            AND o.product_id = #{out.productId}
+        </if>
+        <if test="out.productCode != null">
+            AND p.code LIKE CONCAT('%', #{out.productCode}, '%')
+        </if>
+        <if test="out.supplierId != null">
+            AND o.supplier_id = #{out.supplierId}
+        </if>
+        <if test="out.status != null">
+            AND o.status = #{out.status}
+        </if>
+        ORDER BY o.create_time DESC
+    </select>
+
+    <select id="getByCode" resultType="com.senmol.mes.common.utils.OutboundMaterial">
+        SELECT
+            m.id AS goodsId,
+            m.code AS goodsCode,
+            m.title AS goodsTitle,
+            2 AS type,
+            m.unit_id,
+            SUM( s.residue_qty ) storageQty
+        FROM
+            plan_outsource o
+                LEFT JOIN produce_bom b ON o.product_id = b.product_id
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+                LEFT JOIN produce_material m ON bm.material_id = m.id
+                LEFT JOIN warehouse_storage s ON m.id = s.goods_id
+        WHERE
+            o.code = #{code}
+          AND s.residue_qty > 0
+          AND s.status > 0
+        GROUP BY
+            m.id
+    </select>
+
+    <select id="getBaseQty" resultType="com.senmol.mes.common.utils.OutboundMaterial">
+        SELECT
+            bm.material_id AS goodsId,
+            IF(bm.type = 0, 2, 1) as type,
+            SUM( bm.qty ) AS baseQty
+        FROM
+            plan_outsource o
+                LEFT JOIN produce_bom b ON o.product_id = b.product_id
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+        WHERE
+            o.deleted = 0
+          AND b.deleted = 0
+          AND o.code = #{code}
+        GROUP BY
+            bm.material_id,
+            bm.type
+    </select>
+
+    <select id="getBySiCode" resultType="com.senmol.mes.plan.entity.OutsourceEntity">
+        SELECT
+            o.id,
+            o.qty,
+            IFNULL(o.storage_qty, 0) AS storageQty
+        FROM
+            plan_outsource o
+                LEFT JOIN quality_storage_inspect si ON o.CODE = si.receipt_code
+        WHERE
+            o.deleted = 0
+          AND si.deleted = 0
+          AND si.code = #{siCode}
+    </select>
+
+    <select id="inOutsource" resultType="com.senmol.mes.plan.vo.ProductQty">
+        SELECT
+            o.product_id AS goodsId,
+            sum( o.qty ) AS qty
+        FROM
+            plan_outsource o
+        WHERE
+            o.deleted = 0
+        AND o.status <![CDATA[<]]> 2
+        AND o.product_id IN (
+            <foreach collection="productIds" item="productId" separator=",">
+                #{productId}
+            </foreach>
+            )
+        AND o.order_no != #{saleOrderId}
+        GROUP BY
+            o.product_id
+    </select>
+
+    <select id="getByCpId" resultType="com.senmol.mes.plan.entity.OutsourceEntity">
+        SELECT
+            o.id,
+            o.code,
+            so.code AS orderCode,
+            o.product_id,
+            o.qty
+        FROM
+            plan_outsource o
+                LEFT JOIN plan_sale_order so ON o.order_no = so.id
+        WHERE
+            o.deleted = 0
+          AND so.deleted = 0
+          AND o.status <![CDATA[<]]> 3
+          AND o.product_id IN (
+              <foreach collection="productIds" item="productId" separator=",">
+                  #{productId}
+              </foreach>
+            )
+    </select>
+
+</mapper>
+

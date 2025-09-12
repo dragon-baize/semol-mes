@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.warehouse.mapper.RetrievalMxMapper">
+
+    <select id="getByRetrievalId" resultType="com.senmol.mes.warehouse.vo.RetrievalMxVo">
+        SELECT
+            rm.retrieval_id,
+            rm.storage_id,
+            s.batch_no,
+            s.si_code,
+            rm.goods_id,
+            rm.qr_code,
+            rm.qty,
+            rm.require_qty,
+            rm.residue_qty,
+            rm.stock_id,
+            <if test="type == 0">
+                <if test="sign == 3 or sign == 4 or sign == 10">
+                    o.remarks,
+                </if>
+                <if test="sign != 3 and sign != 4 and sign != 10 and sign != 22">
+                    t.remarks,
+                </if>
+            </if>
+            <if test="type != 0">
+                s.remarks,
+            </if>
+            rm.create_time,
+            rm.create_user,
+            rm.update_time,
+            rm.update_user
+        FROM
+            warehouse_retrieval_mx rm
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+                <if test="type == 0">
+                    LEFT JOIN warehouse_retrieval r ON r.id = rm.retrieval_id
+                    LEFT JOIN plan_outbound o ON o.code = r.pick_order
+                    <if test="sign == 0">
+                        LEFT JOIN work_order_mx om ON o.order_no = om.code
+                        LEFT JOIN plan_produce p ON p.id = om.pid
+                        LEFT JOIN plan_sale_order t ON t.code = p.order_no
+                    </if>
+                    <if test="sign == 1">
+                        LEFT JOIN plan_outsource po ON po.code = o.order_no
+                        LEFT JOIN plan_sale_order t ON t.id = po.order_no
+                    </if>
+                    <if test="sign == 21">
+                        LEFT JOIN plan_purchase_returns t ON t.code = o.order_no
+                    </if>
+                </if>
+        WHERE
+            rm.retrieval_id = #{retrievalId}
+            AND rm.type = #{type}
+    </select>
+
+    <select id="getByOutBoundCode" resultType="com.senmol.mes.plan.vo.OutboundMxVo">
+        SELECT
+            s.batch_no,
+            rm.goods_id,
+            rm.qty
+        FROM
+            warehouse_retrieval r
+                LEFT JOIN warehouse_retrieval_mx rm ON r.id = rm.retrieval_id
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+        WHERE
+            r.pick_order = #{code}
+    </select>
+
+    <select id="getByObCode" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            rm.goods_id AS aId,
+            SUM( rm.qty ) AS qty
+        FROM
+            warehouse_retrieval_mx rm
+                LEFT JOIN warehouse_retrieval r ON rm.retrieval_id = r.id
+        WHERE
+            r.pick_order = #{code}
+        GROUP BY
+            rm.goods_id
+    </select>
+
+    <select id="getByGdCode" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            mx.goods_id AS aId,
+            SUM( mx.qty ) AS qty
+        FROM
+            warehouse_retrieval_mx mx
+                LEFT JOIN warehouse_retrieval r ON mx.retrieval_id = r.id
+                LEFT JOIN plan_outbound o ON r.pick_order = o.code
+        WHERE
+            o.order_no = #{code}
+          AND o.deleted = 0
+        GROUP BY
+            mx.goods_id
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO warehouse_retrieval_mx(retrieval_id, storage_id, goods_id, qr_code, type, qty, require_qty, residue_qty, used_qty, stock_id, create_time, create_user, update_time, update_user)
+        VALUES
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.retrievalId}, #{entity.storageId}, #{entity.goodsId}, #{entity.qrCode}, #{entity.type}, #{entity.qty}, #{entity.requireQty}, #{entity.residueQty}, #{entity.usedQty}, #{entity.stockId}, #{entity.createTime}, #{entity.createUser}, #{entity.updateTime}, #{entity.updateUser})
+        </foreach>
+    </insert>
+
+    <update id="updateBatchByQrCode">
+        UPDATE warehouse_retrieval_mx
+            SET used_qty =
+            CASE
+                qr_code
+                <foreach collection="entities" item="entity">
+                    WHEN #{entity.qrCode} THEN
+                    used_qty + #{entity.usedQty}
+                </foreach>
+                END
+        WHERE
+            qr_code IN (
+            <foreach collection="entities" item="entity" separator=",">
+                #{entity.qrCode}
+            </foreach>
+        )
+    </update>
+
+</mapper>
+

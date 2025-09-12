@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.warehouse.mapper.ReturnedMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.warehouse.entity.ReturnedEntity">
+        SELECT
+            r.id,
+            r.in_batch_no,
+            r.out_batch_no,
+            r.goods_id,
+            <if test="returned.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+            </if>
+            r.type,
+            r.return_qty,
+            r.wastage,
+            r.create_time,
+            r.create_user
+        FROM
+            warehouse_returned r
+            <if test="returned.type == 0 or returned.type == 1">
+                LEFT JOIN produce_product g ON r.goods_id = g.id
+            </if>
+            <if test="returned.type == 2 or returned.type == 3">
+                LEFT JOIN produce_material g ON r.goods_id = g.id
+            </if>
+        <where>
+            <if test="returned.type != null and returned.goodsCode != null and returned.goodsCode != ''">
+                AND g.code LIKE CONCAT('%', #{returned.goodsCode}, '%')
+            </if>
+            <if test="returned.type != null">
+                AND r.type = #{returned.type}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="byQrCode" resultType="com.senmol.mes.warehouse.vo.ReturnedVo">
+        SELECT
+            r.pick_order,
+            mx.goods_id,
+            mx.type,
+            SUM( mx.qty ) AS receiveQty,
+            SUM( mx.used_qty ) AS used_qty,
+            r.batch_no AS outBatchNo,
+            s.batch_no AS inBatchNo
+        FROM
+            warehouse_retrieval_mx mx
+                LEFT JOIN warehouse_retrieval r ON mx.retrieval_id = r.id
+                LEFT JOIN warehouse_storage s ON mx.storage_id = s.id
+        WHERE
+            mx.qr_code = #{qrCode}
+        GROUP BY
+            r.pick_order,
+            mx.goods_id,
+            mx.type,
+            r.batch_no,
+            s.batch_no
+    </select>
+
+    <select id="byObCode" resultType="com.senmol.mes.warehouse.vo.ReturnedVo">
+        SELECT
+            mx.qty AS outputQty,
+            om.qty AS baseQty
+        FROM
+            plan_outbound o
+                LEFT JOIN work_order_mx mx ON o.order_no = mx.code
+                LEFT JOIN work_order_material om ON mx.id = om.mx_id
+        WHERE
+            o.code = #{pickOrder}
+          AND mx.deleted = 0
+          AND mx.status != 2
+          AND om.material_id = #{materialId}
+    </select>
+
+</mapper>
+

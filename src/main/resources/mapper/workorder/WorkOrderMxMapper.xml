@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workorder.mapper.WorkOrderMxMapper">
+
+    <select id="getByPlanId" resultType="com.senmol.mes.workorder.entity.WorkOrderMxEntity">
+        SELECT
+            mx.id,
+            mx.pid,
+            mx.code,
+            mx.qty,
+            mx.non_defective,
+            mx.defective,
+            mx.begin_time,
+            mx.end_time,
+            mx.status,
+            mx.finish,
+            mx.is_free,
+            mx.yield,
+            mx.submit,
+            mx.create_time,
+            mx.create_user,
+            mx.update_time,
+            mx.update_user
+        FROM
+            work_order_mx mx
+                LEFT JOIN plan_produce o ON o.id = mx.pid
+        WHERE
+            mx.deleted = 0
+            AND mx.status != 2
+            AND o.deleted = 0
+            AND o.id = #{planId}
+    </select>
+
+    <select id="getLineOrder" resultType="com.senmol.mes.workorder.vo.WorkOrderMxDto">
+        SELECT
+            om.id,
+            om.pid,
+            om.code,
+            o.product_id,
+            om.qty,
+            IFNULL( om.non_defective, 0 ) AS nonDefective,
+            om.defective,
+            om.begin_time,
+            om.end_time,
+            om.status,
+            om.finish,
+            om.is_free,
+            om.yield,
+            om.is_confirm,
+            om.is_receive,
+            om.submit,
+            si.create_time AS submitTime,
+            s.create_time AS storageTime
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce o ON o.id = om.pid
+                LEFT JOIN produce_product pp ON o.product_id = pp.id
+                LEFT JOIN quality_storage_inspect si ON om.code = si.receipt_code
+                LEFT JOIN warehouse_storage s ON si.code = s.si_code
+        WHERE
+            o.deleted = 0
+          AND pp.product_line_id = #{productLineId}
+          AND om.deleted = 0
+          AND om.status IN ( 1, 3 )
+            <if test="planId != -1">
+                AND o.id = #{planId}
+            </if>
+        ORDER BY
+            om.finish, om.update_time DESC
+    </select>
+
+    <select id="getByMxCode" resultType="com.senmol.mes.workorder.vo.StationInfo">
+        SELECT
+            mx.id AS mxId,
+            mx.code AS mxCode,
+            IFNULL( mx.non_defective, mx.qty ) AS qty,
+            mx.begin_time,
+            o.product_id
+        FROM
+            plan_produce o
+                LEFT JOIN work_order_mx mx ON o.id = mx.pid
+        WHERE
+            o.deleted = 0
+          AND mx.deleted = 0
+          AND mx.finish = 0
+          AND mx.status != 2
+          AND mx.code = #{code}
+    </select>
+
+    <select id="getMaterials" resultType="com.senmol.mes.workorder.vo.MaterialPojo">
+        SELECT
+            mm.material_id,
+            mm.type,
+            IFNULL(mx.non_defective * om.qty, mm.receive_qty) AS receiveQty,
+            ( SELECT
+                  sum( f.qty )
+              FROM
+                  work_order_feed f
+              WHERE
+                  f.material_id = mm.material_id
+                AND f.mx_id = mx.id
+                AND station_id = #{stationId}
+            ) AS feedQty
+        FROM
+            work_order_mx mx
+                LEFT JOIN work_order_mx_material mm ON mx.id = mm.mx_id
+                LEFT JOIN work_order_material om ON om.mx_id = mx.id AND mm.material_id = om.material_id
+        WHERE
+            mx.status = 1
+          AND mx.finish = 0
+          AND mx.deleted = 0
+          AND mx.code = #{code}
+          AND mm.station_id = #{stationId}
+    </select>
+
+    <select id="retrospect" resultType="com.senmol.mes.workorder.vo.OrderMaterialInfo">
+        SELECT
+            rm.goods_id AS materialId,
+            rm.type,
+            s.batch_no AS iBatchNo,
+            s.create_time AS iCreateTime,
+            s.create_user AS iCreateUser,
+            r.batch_no AS oBatchNo,
+            r.create_time AS oCreateTime,
+            r.picker AS oCreateUser
+        FROM
+            work_order_mx mx
+                LEFT JOIN plan_outbound o ON mx.code = o.order_no
+                LEFT JOIN warehouse_retrieval r ON o.code = r.pick_order
+                LEFT JOIN warehouse_retrieval_mx rm ON r.id = rm.retrieval_id
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+        WHERE
+            mx.deleted = 0
+          AND o.deleted = 0
+          AND mx.status != 2
+          AND mx.code = #{code}
+    </select>
+
+    <select id="getStatByWeek" resultType="com.senmol.mes.workorder.vo.StatInfo">
+        SELECT
+            <if test="wom == 0">
+                CAST( DATE_FORMAT( om.update_time, '%u' ) AS INT ) AS date,
+            </if>
+            <if test="wom == 1">
+                CAST( DATE_FORMAT( om.update_time, '%m' ) AS INT ) AS date,
+            </if>
+            GROUP_CONCAT( p.id ) AS ids
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce p ON om.pid = p.id
+                LEFT JOIN produce_product pp on p.product_id = pp.id
+        WHERE
+            om.deleted = 0
+          AND om.finish = 2
+          AND p.deleted = 0
+          AND pp.product_line_id = #{productLineId}
+          AND DATE( om.update_time ) >= DATE_FORMAT(CURDATE(), '%Y-01-01')
+        GROUP BY
+            date
+    </select>
+
+    <select id="getStorageQty" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( s.qty ), 0 )
+        FROM
+            work_order_mx om
+                JOIN quality_storage_inspect si ON om.code = si.receipt_code
+                JOIN warehouse_storage s ON si.code = s.si_code
+        WHERE
+            om.finish = 2
+          AND om.deleted = 0
+          AND si.deleted = 0
+          AND DATE( om.update_time ) >= DATE_FORMAT(CURDATE(), '%Y-01-01')
+    </select>
+
+    <select id="getStatYield" resultType="com.senmol.mes.workorder.vo.StatInfo">
+        SELECT
+            <if test="wom == 0">
+                CAST( DATE_FORMAT( om.update_time, '%u' ) AS INT ) AS date,
+            </if>
+            <if test="wom == 1">
+                CAST( DATE_FORMAT( om.update_time, '%m' ) AS INT ) AS date,
+            </if>
+            SUM( IFNULL( om.qty, 0 ) ) AS pQty,
+            SUM( IFNULL( s.qty, 0 ) ) AS sQty
+        FROM
+            work_order_mx om
+                JOIN quality_storage_inspect si ON om.code = si.receipt_code
+                JOIN warehouse_storage s ON si.code = s.si_code
+        WHERE
+            om.pid IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+                )
+          AND om.finish = 2
+          AND DATE( om.update_time ) >= DATE_FORMAT(CURDATE(), '%Y-01-01')
+        GROUP BY
+            date
+    </select>
+
+    <select id="getProcesses" resultType="com.senmol.mes.produce.entity.ProcessEntity">
+        SELECT DISTINCTROW
+            om.process_id AS id,
+            om.serial_no,
+            om.station_id
+        FROM
+            work_order_mx mx
+                LEFT JOIN work_order_material om ON mx.id = om.mx_id
+        WHERE
+            mx.deleted = 0
+          AND mx.status != 2
+          AND mx.code = #{mxCode}
+        ORDER BY
+            om.serial_no
+    </select>
+
+    <select id="getLineInfo" resultType="com.senmol.mes.produce.entity.ProductLineEntity">
+        SELECT
+            pl.id,
+            pl.total,
+            pl.rate
+        FROM
+            produce_product_line pl
+                LEFT JOIN produce_product pp ON pl.id = pp.product_line_id
+                LEFT JOIN plan_produce p ON pp.id = p.product_id
+                LEFT JOIN work_order_mx om ON p.id = om.pid
+        WHERE
+            om.id = #{mxId}
+          AND pl.deleted = 0
+	      AND p.deleted = 0
+	      AND om.deleted = 0
+          AND om.status != 2
+    </select>
+
+    <select id="statOrderMx" resultType="com.senmol.mes.workorder.vo.ProductLineInfo">
+        SELECT
+            om.pid AS id,
+            IFNULL( SUM( om.qty ), 0 ) AS orderQty,
+            IFNULL( SUM( om.non_defective ), 0 ) AS nonDefective,
+            IFNULL( SUM( om.defective ), 0 ) AS defective
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce o ON om.pid = o.id
+                LEFT JOIN produce_product p ON o.product_id = p.id
+        WHERE
+            om.status = 1
+          AND om.deleted = 0
+          AND o.deleted = 0
+          AND p.product_line_id = #{productLineId}
+        GROUP BY
+            om.pid
+    </select>
+
+    <select id="getByLineId" resultType="com.senmol.mes.workorder.vo.ProductPojo">
+        SELECT
+            om.id,
+            om.code,
+            om.qty,
+            ( SELECT mp.station_id FROM work_order_mx_process mp WHERE mp.mx_id = om.id AND mp.status = 2 ORDER BY serial_no DESC LIMIT 1) AS stationId,
+            om.yield,
+            p.product_id,
+            p.expect_date,
+            p.reality_finish_time
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce p ON om.pid = p.id
+                LEFT JOIN produce_product pp ON p.product_id = pp.id
+        WHERE
+            pp.product_line_id = #{productLineId}
+          AND om.status = 1
+          AND om.is_free = 1
+          AND om.finish != 2
+          AND om.deleted = 0
+          AND p.deleted = 0
+        ORDER BY
+            om.finish,
+            om.update_time DESC
+    </select>
+
+    <select id="getSumQty" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL(SUM( om.qty ), 0)
+        FROM
+            work_order_mx om
+        WHERE
+            om.deleted = 0
+          AND om.finish = 2
+          AND om.status != 2
+          AND DATE( om.update_time ) >= DATE_FORMAT(CURDATE(), '%Y-01-01')
+    </select>
+
+    <select id="getByPlanIds" resultType="java.lang.String">
+        SELECT
+            om.code
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce o ON om.pid = o.id
+        WHERE
+            om.finish = 0
+          AND om.status != 2
+          AND om.deleted = 0
+          AND o.status = 0
+          AND o.deleted = 0
+          AND o.id IN (
+              <foreach collection="planIds" item="planId" separator=",">
+                  #{planId}
+              </foreach>
+            )
+    </select>
+
+</mapper>
+

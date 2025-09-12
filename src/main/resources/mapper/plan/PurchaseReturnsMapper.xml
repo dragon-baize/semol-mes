@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.PurchaseReturnsMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.entity.PurchaseReturns">
+        SELECT
+            p.id,
+            p.batch_no,
+            p.order_no,
+            p.pid,
+            p.code,
+            p.goods_id,
+            <if test="pr.type == 1">
+                pp.code AS goodsCode,
+                pp.title AS goodsTitle,
+                pp.unit_id,
+            </if>
+            <if test="pr.type == 2">
+                m.code AS goodsCode,
+                m.title AS goodsTitle,
+                m.unit_id,
+            </if>
+            p.type,
+            p.qty,
+            p.warehouse,
+            p.price,
+            p.tax_rate,
+            p.tax_price,
+            p.digest,
+            p.status,
+            p.create_time,
+            p.create_user,
+            p.update_time,
+            p.update_user
+        FROM
+            plan_purchase_returns p
+            <if test="pr.type == 1">
+                LEFT JOIN produce_product pp ON p.goods_id = pp.id
+            </if>
+            <if test="pr.type == 2">
+                LEFT JOIN produce_material m ON p.goods_id = m.id
+            </if>
+        WHERE
+            p.deleted = 0
+        <if test="pr.id != null">
+            AND p.id = #{pr.id}
+        </if>
+        <if test="pr.batchNo != null and pr.batchNo != ''">
+            AND p.batch_no = #{pr.batchNo}
+        </if>
+        <if test="pr.pid != null">
+            AND p.pid = #{pr.pid}
+        </if>
+        <if test="pr.code != null and pr.code != ''">
+            AND p.code = #{pr.code}
+        </if>
+        <if test="pr.goodsId != null">
+            AND p.goods_id = #{pr.goodsId}
+        </if>
+        <if test="pr.type == 1 and pr.goodsCode != '' and pr.goodsCode != null">
+            AND pp.code LIKE CONCAT('%', #{pr.goodsCode}, '%')
+        </if>
+        <if test="pr.type == 2 and pr.goodsCode != '' and pr.goodsCode != null">
+            AND m.code LIKE CONCAT('%', #{pr.goodsCode}, '%')
+        </if>
+        <if test="pr.type != null">
+            AND p.type = #{pr.type}
+        </if>
+        <if test="pr.qty != null">
+            AND p.qty = #{pr.qty}
+        </if>
+        <if test="pr.warehouse != null and pr.warehouse != ''">
+            AND p.warehouse = #{pr.warehouse}
+        </if>
+        <if test="pr.status != null">
+            AND p.status = #{pr.status}
+        </if>
+        <if test="pr.createUser != null">
+            AND p.create_user = #{pr.createUser}
+        </if>
+        <if test="pr.updateUser != null">
+            AND p.update_user = #{pr.updateUser}
+        </if>
+        ORDER BY p.create_time DESC
+    </select>
+
+    <update id="setInvoices">
+        UPDATE plan_purchase_returns
+        SET invoice =
+            CASE
+                id
+                <foreach collection="returnsIds" item="returnsId">
+                    WHEN #{returnsId} THEN #{invoice}
+                </foreach>
+            END
+        WHERE
+            id IN (
+            <foreach collection="returnsIds" item="returnsId" separator=",">
+                #{returnsId}
+            </foreach>
+        )
+    </update>
+
+</mapper>
+

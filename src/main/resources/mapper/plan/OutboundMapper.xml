@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.OutboundMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.OutboundVo">
+        SELECT
+            o.id,
+            o.code,
+            o.pid,
+            o.order_no,
+            o.type,
+            o.product_code,
+            o.plan_qty,
+            o.qty,
+            o.status,
+            o.advice_out_time,
+            o.invoice,
+            o.remarks,
+            o.create_time,
+            o.create_user,
+            o.update_time,
+            o.update_user
+        FROM
+            plan_outbound o
+        WHERE
+            o.deleted = 0
+        <if test="ob.id != null">
+            AND o.id = #{ob.id}
+        </if>
+        <if test="ob.code != null and ob.code != ''">
+            AND o.code LIKE CONCAT('%', #{ob.code}, '%')
+        </if>
+        <if test="ob.orderNo != null and ob.orderNo != ''">
+            AND o.order_no = #{ob.orderNo}
+        </if>
+        <if test="ob.type != null">
+            AND o.type = #{ob.type}
+        </if>
+        <if test="ob.status != null">
+            AND o.status = #{ob.status}
+        </if>
+        <if test="ob.createUser != null">
+            AND o.create_user = #{ob.createUser}
+        </if>
+        <if test="ob.updateUser != null">
+            AND o.update_user = #{ob.updateUser}
+        </if>
+        ORDER BY o.update_time DESC
+    </select>
+
+    <select id="getSumQty" resultType="com.senmol.mes.plan.vo.ProductQty">
+        SELECT
+            mx.goods_id,
+            sum( mx.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx mx ON o.id = mx.outbound_id
+                LEFT JOIN plan_sale_order so ON o.order_no = so.code
+                AND so.deleted = 0
+        WHERE
+            o.deleted = 0
+          AND mx.goods_id IN (
+              <foreach collection="productIds" item="productId" separator=",">
+                  #{productId}
+              </foreach>
+            )
+            AND so.status = 1
+            AND o.status > 1
+        GROUP BY
+            mx.goods_id
+    </select>
+
+    <select id="getMxs" resultType="com.senmol.mes.plan.entity.OutboundMxEntity">
+        SELECT
+            <if test="sign == 0">
+                s.batch_no,
+                s.residue_qty AS storageQty,
+            </if>
+            om.outbound_id,
+            om.storage_id,
+            om.goods_id,
+            om.type,
+            om.qty,
+            IFNULL(om.act_qty, 0) AS actQty,
+            om.price,
+            om.tax_rate,
+            om.tax_price
+        FROM
+            plan_outbound_mx om
+            <if test="sign == 0">
+                LEFT JOIN warehouse_storage s ON om.storage_id = s.id
+            </if>
+        WHERE
+            om.outbound_id = #{id}
+            <if test="sign == 1">
+              AND om.qty > IFNULL(om.act_qty, 0)
+            </if>
+    </select>
+
+    <select id="getOutBoundQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            om.goods_id AS aId,
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+        WHERE
+            o.deleted = 0
+          AND o.type = 0
+          AND o.status = 2
+          AND o.order_no IN (
+                <foreach collection="codes" item="code" separator=",">
+                    #{code}
+                </foreach>
+            )
+        AND om.goods_id IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+        GROUP BY
+            om.goods_id
+    </select>
+
+    <select id="getObQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            o.order_no AS aStr,
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+        WHERE
+            o.deleted = 0
+          AND o.type = 0
+          AND o.status = 2
+          AND o.order_no IN (
+                <foreach collection="codes" item="code" separator=",">
+                    #{code}
+                </foreach>
+            )
+          AND om.goods_id = #{materialId}
+        GROUP BY
+            o.order_no
+    </select>
+
+    <select id="getOutsourceQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            om.goods_id AS aId,
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+        WHERE
+            o.deleted = 0
+          AND o.type = 1
+          AND o.status <![CDATA[<]]> 2
+          AND om.goods_id IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+        GROUP BY
+            om.goods_id
+    </select>
+
+    <select id="getOsQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            o.order_no AS aStr,
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+        WHERE
+            o.deleted = 0
+          AND o.type = 1
+          AND o.status <![CDATA[<]]> 2
+          AND om.goods_id = #{materialId}
+        GROUP BY
+            o.order_no
+    </select>
+
+    <insert id="saveOutbound">
+        INSERT INTO plan_outbound(id, code, pid, order_no, type, product_code, plan_qty, qty, status, advice_out_time, invoice, remarks, create_time, create_user, update_time, update_user)
+        VALUES (#{entity.id}, #{entity.code}, #{entity.pid}, #{entity.orderNo}, #{entity.type}, #{entity.productCode}, #{entity.planQty}, #{entity.qty}, #{entity.status}, #{entity.adviceOutTime}, #{entity.invoice}, #{entity.remarks}, #{entity.createTime}, #{entity.createUser}, #{entity.updateTime}, #{entity.updateUser})
+    </insert>
+
+</mapper>
+

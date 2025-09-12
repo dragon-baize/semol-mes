@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workflow.mapper.FlowRecordMapper">
+
+    <select id="getMxById" resultType="com.senmol.mes.workflow.vo.FlowRecordInfo">
+        SELECT
+            fr.id,
+            fr.item_id,
+            fr.item_code,
+            fr.item_title,
+            fr.table_name,
+            fr.flow_id,
+            fr.create_time,
+            fr.create_user,
+            GROUP_CONCAT( fru.user_id, '_', fru.result, '_', IFNULL( fru.remarks, '' ) ) AS userApprove
+        FROM
+            work_flow_record fr
+            LEFT JOIN work_flow_record_user fru ON fr.id = fru.pid
+        WHERE
+            fr.id = #{id}
+          AND fr.deleted = 0
+    </select>
+
+    <select id="selectAll" resultType="com.senmol.mes.workflow.vo.FlowRecordVo">
+        SELECT
+            f.title,
+            fr.id,
+            fr.item_id,
+            fr.item_code,
+            fr.item_title,
+            fr.table_name,
+            fr.flow_id,
+            fr.remarks,
+            fr.status,
+            fr.create_time,
+            fr.create_user
+        FROM
+            work_flow f
+            LEFT JOIN work_flow_record fr ON f.id = fr.flow_id
+            LEFT JOIN work_flow_record_user fru ON fr.id = fru.pid
+        WHERE
+            fr.deleted = 0
+          AND fru.user_id = #{userId}
+        <if test="re.id != null">
+            AND fr.id = #{re.id}
+        </if>
+        <if test="re.itemId != null">
+            AND fr.item_id = #{re.itemId}
+        </if>
+        <if test="re.itemCode != null and re.itemCode != ''">
+            AND fr.item_code = #{re.itemCode}
+        </if>
+        <if test="re.itemTitle != null and re.itemTitle != ''">
+            AND fr.item_title LIKE CONCAT('%', #{re.itemTitle}, '%')
+        </if>
+        <if test="re.title != null and re.title != ''">
+            AND f.title LIKE CONCAT('%', #{re.title}, '%')
+        </if>
+        <if test="re.flowId != null">
+            AND fr.flow_id = #{re.flowId}
+        </if>
+        <if test="re.status != null">
+            AND fr.status = #{re.status}
+        </if>
+        <if test="re.createUser != null">
+            AND fr.create_user = #{re.createUser}
+        </if>
+        ORDER BY fr.create_time DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE ${table} SET status = #{status} WHERE id = #{id}
+    </update>
+
+</mapper>
+

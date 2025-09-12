@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.BomMaterialMapper">
+
+    <select id="getByProductId" resultType="com.senmol.mes.produce.vo.MaterialInfo">
+        WITH recursive temp AS (
+            SELECT
+                bm.material_id AS id,
+                b.product_id AS pid,
+                bm.type,
+                1 AS level,
+                bm.qty AS singleQty,
+                0 AS psingleQty
+            FROM
+                produce_bom b
+                    LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+            WHERE
+                b.product_id = #{productId}
+              AND b.deleted = 0 UNION ALL
+            SELECT
+                bl.material_id AS id,
+                t.id AS pid,
+                bl.type,
+                2 AS level,
+                bl.qty AS singleQty,
+                t.singleQty AS psingleQty
+            FROM
+                produce_bom_material bl
+                    LEFT JOIN produce_bom o ON bl.bom_id = o.id
+                    INNER JOIN temp t ON o.product_id = t.id
+            WHERE
+                o.deleted = 0
+              AND t.type = 1
+        )
+        SELECT
+            p.*
+        FROM
+            temp p
+    </select>
+
+</mapper>
+

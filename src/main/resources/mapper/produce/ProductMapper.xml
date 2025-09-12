@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.ProductMapper">
+
+    <select id="getList" resultType="com.senmol.mes.produce.entity.ProductEntity">
+        SELECT
+            p.id,
+            p.code,
+            p.title,
+            p.product_line_id,
+            p.specs,
+            p.product_mode,
+            p.product_cycle,
+            p.purchase_cycle,
+            p.outsource_cycle,
+            p.per_batch_qty,
+            p.type,
+            p.unit_id,
+            p.yield,
+            p.life_info,
+            p.remarks,
+            p.status,
+            p.create_time,
+            p.create_user,
+            p.update_user,
+            p.update_time
+        FROM
+            produce_product p
+        <where>
+            p.deleted = 0
+            <if test="source == 1">
+                AND NOT EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        produce_bom b
+                    WHERE
+                        b.product_id = p.id
+                    AND b.deleted = 0
+                    <if test="bomId != null">
+                        AND b.id != #{bomId}
+                    </if>
+                )
+            </if>
+            <if test="source == 3">
+                AND p.type = 0
+                AND NOT EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        plan_supplier_goods sg
+                    WHERE
+                        sg.type = 1
+                      AND sg.goods_id = p.id
+                    <if test="supplierId != null">
+                      AND sg.pid != #{supplierId}
+                    </if>
+                )
+            </if>
+        </where>
+    </select>
+
+</mapper>
+

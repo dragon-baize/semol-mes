@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workorder.mapper.WorkOrderMaterialMapper">
+
+    <select id="getByMxId" resultType="com.senmol.mes.workorder.entity.WorkOrderMaterial">
+        SELECT DISTINCT
+            om.process_id,
+            om.serial_no,
+            om.station_id,
+            om.device_id
+        FROM
+            work_order_material om
+                LEFT JOIN work_order_mx mx ON om.mx_id = mx.id
+        WHERE
+            mx.deleted = 0
+          AND mx.status != 2
+          AND mx.id = #{mxId}
+        ORDER BY
+            om.serial_no
+    </select>
+
+    <select id="getBaseMaterial" resultType="cn.hutool.core.lang.Dict">
+        SELECT
+            om.material_id,
+            om.qty * #{count} AS qty
+        FROM
+            work_order_mx mx
+                LEFT JOIN work_order_material om ON om.mx_id = mx.id
+        WHERE
+            mx.id = #{mxId}
+          AND mx.deleted = 0
+          AND om.process_id = #{processId}
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO work_order_material(
+            mx_id, material_id, type,
+            qty, station_id, device_id,
+            process_id, serial_no)
+        VALUES
+        <foreach collection="entities" item="entity" separator=",">
+            (#{mxId}, #{entity.materialId}, #{entity.type},
+             #{entity.qty}, #{entity.stationId}, #{entity.deviceId},
+             #{entity.processId}, #{entity.serialNo})
+        </foreach>
+    </insert>
+
+</mapper>
+

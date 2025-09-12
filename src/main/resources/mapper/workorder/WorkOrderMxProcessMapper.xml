@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workorder.mapper.WorkOrderMxProcessMapper">
+
+    <select id="countBeginOrder" resultType="long">
+        SELECT
+            count( mp.id )
+        FROM
+            work_order_mx_process mp
+                LEFT JOIN work_order_mx om ON mp.mx_id = om.id
+        WHERE
+            om.pid = #{id}
+          AND om.status != 2
+          AND mp.status > 0
+    </select>
+
+</mapper>
+

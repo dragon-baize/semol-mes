@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.SaleOrderMapper">
+
+    <sql id="condition">
+        WHERE
+            so.deleted = 0
+        <if test="pojo.customId != null">
+            AND so.custom_id = #{pojo.customId}
+        </if>
+        <if test="pojo.userId != null">
+            AND so.create_user = #{pojo.userId}
+        </if>
+        <if test="pojo.productId != null">
+            AND sop.product_id = #{pojo.productId}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="pojo.startTime != null">
+            AND DATE(so.create_time) >= #{pojo.startTime}
+        </if>
+        <if test="pojo.endTime != null">
+            AND DATE(so.create_time) <![CDATA[<=]]> #{pojo.endTime}
+        </if>
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null">
+            AND DATE(so.create_time) >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND DATE(so.create_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="orderMx" resultType="com.senmol.mes.plan.vo.OrderMxVo">
+        SELECT
+            so.id,
+            so.code,
+            so.custom_id,
+            so.create_time,
+            so.create_user,
+            sop.product_id,
+            sop.price,
+            sop.tax_rate,
+            sop.tax_price,
+            sop.qty,
+            sop.reality_qty,
+            0 AS recQty,
+            0 AS production,
+            0 AS defective,
+            0 AS unqualifiedQty,
+            0 AS scrapQty
+        FROM
+            plan_sale_order so
+            INNER JOIN plan_sale_order_product sop ON so.id = sop.sale_order_id
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectOrderMxTotal" resultType="com.senmol.mes.plan.vo.OrderMxVoTotal">
+        SELECT
+            SUM( sop.reality_qty ) AS totalRealityQty,
+            SUM( sop.price * sop.reality_qty ) AS totalRealityPrice,
+            SUM( sop.tax_price * sop.reality_qty ) AS totalRealityTaxPrice,
+            SUM( sop.qty ) AS totalQty,
+            SUM( sop.price * sop.qty ) AS totalPrice,
+            SUM( sop.tax_price * sop.qty ) AS totalTaxPrice,
+            SUM( unshipped_qty ) AS totalUnshippedQty,
+            SUM( sop.price * unshipped_qty ) AS totalUnshippedPrice,
+            SUM( sop.tax_price * unshipped_qty ) AS totalUnshippedTaxPrice
+        FROM
+            plan_sale_order so
+            INNER JOIN plan_sale_order_product sop ON so.id = sop.sale_order_id
+            LEFT JOIN (
+                SELECT
+                    sale_order_id,
+                    product_id,
+                    GREATEST( qty - reality_qty, 0 ) AS unshipped_qty
+                FROM
+                    plan_sale_order_product
+                ) unshipped
+                ON sop.sale_order_id = unshipped.sale_order_id
+                AND sop.product_id = unshipped.product_id
+        <include refid="condition"/>
+        <include refid="timeInterval"/>
+    </select>
+
+    <select id="workOrder" resultType="com.senmol.mes.plan.vo.OrderVo">
+        SELECT
+            p.order_no AS code,
+            p.id,
+            p.product_id,
+            p.rec_qty
+        FROM
+            plan_produce p
+        WHERE
+            p.order_no IN (
+                <foreach collection="codes" item="code" separator=",">
+                    #{code}
+                </foreach>
+                )
+    </select>
+
+    <select id="orderMxInspect" resultType="com.senmol.mes.plan.vo.OrderMxInspectVo">
+        SELECT
+            om.pid,
+            sum( om.qty ) AS production,
+            ( SELECT IFNULL( SUM( mp.defective ), 0 ) FROM work_order_mx_process mp WHERE om.id = mp.mx_id ) AS defective,
+            IFNULL(sum( si.unqualified_qty ), 0) AS unqualifiedQty
+        FROM
+            work_order_mx om
+                LEFT JOIN quality_storage_inspect si ON om.CODE = si.receipt_code
+                AND si.deleted = 0
+        WHERE
+            om.pid IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+                )
+          AND om.is_free = 1
+          AND om.status != 2
+          AND om.deleted = 0
+        GROUP BY
+            om.pid
+    </select>
+
+    <select id="getDelivery" resultType="com.senmol.mes.plan.vo.DeliveryVo">
+        SELECT
+            so.id,
+            so.code,
+            so.custom_id,
+            so.create_time,
+            so.create_user,
+            sop.product_id,
+            sop.reality_qty AS qty,
+            sop.price,
+            sop.tax_rate,
+            sop.tax_price
+        FROM
+            plan_sale_order_product sop
+                LEFT JOIN plan_sale_order so ON sop.sale_order_id = so.id
+        WHERE
+            so.deleted = 0
+          AND so.sign = 2
+        <if test="pojo.customId != null">
+            AND so.custom_id = #{pojo.customId}
+        </if>
+        <if test="pojo.userId != null">
+            AND so.create_user = #{pojo.userId}
+        </if>
+        <if test="pojo.productId != null">
+            AND sop.product_id = #{pojo.productId}
+        </if>
+        <if test="pojo.startTime != null">
+            AND DATE_FORMAT(so.create_time,'%Y-%m-%d') >= #{pojo.startTime}
+        </if>
+        <if test="pojo.endTime != null">
+            AND DATE_FORMAT(so.create_time,'%Y-%m-%d') <![CDATA[<=]]> #{pojo.endTime}
+        </if>
+        ORDER BY so.create_time DESC
+    </select>
+
+    <select id="getReturns" resultType="com.senmol.mes.plan.vo.DeliveryVo">
+        SELECT
+            sr.id,
+            sr.code,
+            sr.unqualified_qty AS qty,
+            sr.goods_id AS productId,
+            sr.custom_id,
+            sr.create_time,
+            sr.create_user,
+            cp.price,
+            cp.tax_rate,
+            cp.tax_price
+        FROM
+            quality_storage_reserva sr
+                LEFT JOIN plan_custom_product cp ON sr.custom_id = cp.custom_id
+        WHERE
+            sr.deleted = 0
+          AND sr.source = 2
+        <if test="pojo.customId != null">
+            AND sr.custom_id = #{pojo.customId}
+        </if>
+        <if test="pojo.userId != null">
+            AND sr.create_user = #{pojo.userId}
+        </if>
+        <if test="pojo.productId != null">
+            AND sr.goods_id = #{pojo.productId}
+        </if>
+        <if test="pojo.startTime != null">
+            AND DATE_FORMAT(sr.create_time,'%Y-%m-%d') >= #{pojo.startTime}
+        </if>
+        <if test="pojo.endTime != null">
+            AND DATE_FORMAT(sr.create_time,'%Y-%m-%d') <![CDATA[<=]]> #{pojo.endTime}
+        </if>
+    </select>
+
+    <select id="deliveryMx" resultType="com.senmol.mes.plan.vo.DeliveryVo">
+        SELECT
+            mark,
+            id,
+            code,
+            outboundId,
+            obCode,
+            custom_id,
+            create_time,
+            create_user,
+            product_id,
+            qty,
+            price,
+            tax_rate,
+            tax_price,
+            type
+        FROM
+            view_delivery_returns
+        <where>
+            <if test="pojo.mark != null">
+                AND mark = #{pojo.mark}
+            </if>
+            <if test="pojo.customId != null">
+                AND custom_id = #{pojo.customId}
+            </if>
+            <if test="pojo.userId != null">
+                AND create_user = #{pojo.userId}
+            </if>
+            <if test="pojo.productId != null">
+                AND product_id = #{pojo.productId}
+            </if>
+            <if test="pojo.startTime != null">
+                AND DATE(create_time) >= #{pojo.startTime}
+            </if>
+            <if test="pojo.endTime != null">
+                AND DATE(create_time) <![CDATA[<=]]> #{pojo.endTime}
+            </if>
+            <if test="pojo.type != null">
+                AND type = #{pojo.type}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectDeliveryTotal" resultType="com.senmol.mes.plan.vo.DeliveryVoTotal">
+        SELECT
+            IFNULL( SUM( qty ), 0 ) AS totalQty,
+            IFNULL( SUM( price ), 0 ) AS totalPrice,
+            IFNULL( SUM( price * qty ), 0 ) AS totalAmount,
+            IFNULL( SUM( tax_price ), 0 ) AS totalTaxPrice,
+            IFNULL( SUM( tax_price * qty ), 0 ) AS totalPriceTax
+        FROM
+            view_delivery_returns
+        <where>
+            <if test="pojo.mark != null">
+                AND mark = #{pojo.mark}
+            </if>
+            <if test="pojo.customId != null">
+                AND custom_id = #{pojo.customId}
+            </if>
+            <if test="pojo.userId != null">
+                AND create_user = #{pojo.userId}
+            </if>
+            <if test="pojo.productId != null">
+                AND product_id = #{pojo.productId}
+            </if>
+            <if test="startTime != null">
+                AND DATE(create_time) >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND DATE(create_time) <![CDATA[<=]]> #{endTime}
+            </if>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+        </where>
+    </select>
+
+</mapper>
+

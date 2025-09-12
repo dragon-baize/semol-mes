@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.PurchaseInvoiceMxMapper">
+
+    <insert id="updateBatch">
+        UPDATE plan_purchase_invoice_mx
+        SET qty =
+            CASE
+                mx_id
+                <foreach collection="entities" item="entity">
+                    WHEN #{entity.mxId} THEN #{entity.qty}
+                </foreach>
+                ELSE qty
+            END,
+            tax_price =
+            CASE
+                mx_id
+                <foreach collection="entities" item="entity">
+                    WHEN #{entity.mxId} THEN #{entity.taxPrice}
+                </foreach>
+                ELSE tax_price
+            END
+        WHERE
+            pid = #{pid}
+    </insert>
+
+</mapper>
+

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.CustomProductMapper">
+
+    <select id="getByOutBoundCode" resultType="com.senmol.mes.plan.entity.CustomProductEntity">
+        SELECT
+            cp.custom_id,
+            cp.product_id,
+            cp.cus_pro_code
+        FROM
+            plan_outbound o
+                INNER JOIN plan_sale_order so ON o.order_no = so.code AND so.deleted = 0
+                INNER JOIN plan_custom_product cp ON so.custom_id = cp.custom_id
+        WHERE
+            o.deleted = 0
+          AND o.code = #{outBoundCode}
+    </select>
+
+</mapper>
+

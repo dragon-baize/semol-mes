@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.RequisitionMapper">
+
+    <sql id="condition">
+        FROM
+            plan_requisition r
+                LEFT JOIN produce_material m ON m.id = r.material_id
+                LEFT JOIN plan_sale_order so ON r.sale_order_id = so.id AND so.deleted = 0
+        WHERE
+            r.deleted = 0
+          AND m.deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND CONCAT(IFNULL(r.code, ''), IFNULL(so.code, '')) LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="re.id != null">
+            AND r.id = #{re.id}
+        </if>
+        <if test="re.code != null and re.code != ''">
+            AND r.code LIKE CONCAT('%', #{re.code}, '%')
+        </if>
+        <if test="re.title != null and re.title != ''">
+            AND r.title LIKE CONCAT('%', #{re.title}, '%')
+        </if>
+        <if test="re.materialId != null">
+            AND r.material_id = #{re.materialId}
+        </if>
+        <if test="re.materialCode != null">
+            AND m.code LIKE CONCAT('%', #{re.materialCode}, '%')
+        </if>
+        <if test="re.productId != null">
+            AND r.product_id = #{re.productId}
+        </if>
+        <if test="re.saleOrderId != null">
+            AND r.sale_order_id = #{re.saleOrderId}
+        </if>
+        <if test="re.status != null">
+            AND r.status = #{re.status}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="page.startTime != null ">
+            AND DATE(r.update_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null ">
+            AND DATE(r.update_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        ORDER BY r.status, r.update_time DESC
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null ">
+            AND DATE(r.update_time) >= #{startTime}
+        </if>
+        <if test="endTime != null ">
+            AND DATE(r.update_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.RequisitionVo">
+        SELECT
+            r.id,
+            r.code,
+            r.title,
+            r.material_id,
+            m.code AS materialCode,
+            m.title AS materialTitle,
+            r.product_id,
+            r.sale_order_id,
+            so.code AS saleOrderCode,
+            r.qty,
+            r.demand_time,
+            r.purchase_cycle,
+            r.unit_id,
+            r.advice_purchase_date,
+            r.advice_qty,
+            r.status,
+            r.mrp,
+            r.create_time,
+            r.create_user,
+            r.update_time,
+            r.update_user
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectTotal" resultType="java.math.BigDecimal">
+        SELECT
+            SUM( r.advice_qty ) AS totalAdviceQty
+        <include refid="condition"/>
+        <include refid="timeInterval"/>
+    </select>
+
+    <select id="getUnbound" resultType="com.senmol.mes.plan.entity.RequisitionEntity">
+        SELECT
+            r.id,
+            r.code,
+            r.title,
+            r.material_id,
+            r.product_id,
+            r.sale_order_id,
+            r.qty,
+            r.demand_time,
+            r.purchase_cycle,
+            r.unit_id,
+            r.advice_purchase_date,
+            r.advice_qty,
+            r.status,
+            r.mrp,
+            r.create_time,
+            r.create_user,
+            r.update_time,
+            r.update_user
+        FROM
+            plan_requisition r
+        WHERE
+            r.deleted = 0
+          AND r.id NOT IN (
+            SELECT
+                po.requisition_id
+            FROM
+                plan_purchase_order po
+            WHERE
+                po.deleted = 0
+        )
+    </select>
+
+</mapper>
+

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.warehouse.mapper.RetrievalMapper">
+
+    <insert id="saveRetrieval">
+        INSERT INTO warehouse_retrieval(id, batch_no, pick_order, picker, type, create_time, create_user, update_time, update_user)
+        VALUES (#{entity.id}, #{entity.batchNo}, #{entity.pickOrder}, #{entity.picker}, #{entity.type}, #{entity.createTime}, #{entity.createUser}, #{entity.updateTime}, #{entity.updateUser})
+    </insert>
+
+</mapper>
+

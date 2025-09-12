@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.MrpMaterialMapper">
+
+    <select id="getByMaterialId" resultType="com.senmol.mes.workorder.vo.MaterialPojo">
+        SELECT DISTINCT
+            m.id,
+            so.code AS saleOrderCode
+        FROM
+            plan_mrp_material mm
+                LEFT JOIN plan_mrp m ON mm.mrp_id = m.id
+                LEFT JOIN plan_sale_order so ON m.sale_order_id = so.id
+        WHERE
+            mm.id = #{materialId}
+          AND so.status = 1
+          AND m.is_count = 2
+          AND m.deleted = 0
+    </select>
+
+</mapper>
+

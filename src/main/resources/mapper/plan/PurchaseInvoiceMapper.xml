@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.PurchaseInvoiceMapper">
+
+    <sql id="condition">
+        FROM
+            plan_purchase_invoice pi
+            LEFT JOIN plan_purchase_invoice_mx pim ON pi.id = pim.pid
+            LEFT JOIN plan_purchase_order po ON pim.order_id = po.id AND po.deleted = 0
+        WHERE
+            pi.deleted = 0
+        <if test="vo.id != null">
+            AND pi.id = #{vo.id}
+        </if>
+        <if test="vo.supplierId != null">
+            AND po.supplier_id = #{vo.supplierId}
+        </if>
+        <if test="vo.goodsId != null">
+            AND po.material_id = #{vo.goodsId}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="page.startTime != null">
+            AND DATE(pi.create_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null">
+            AND DATE(pi.create_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        GROUP BY pi.id
+        ORDER BY pi.create_time DESC
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null">
+            AND DATE(pi.create_time) >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND DATE(pi.create_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.PurchaseInvoiceVo">
+        SELECT
+            pi.id,
+            GROUP_CONCAT( po.id ) AS pids,
+            GROUP_CONCAT( po.order_no ) AS orderNo,
+            GROUP_CONCAT( po.title ) AS title,
+            GROUP_CONCAT( DISTINCT po.supplier_id ) AS supplierIds,
+            pi.user_id,
+            pi.record_date,
+            pi.code,
+            pi.invoice_no,
+            pi.digest,
+            GROUP_CONCAT( po.type ) AS types,
+            GROUP_CONCAT( po.type, ':', po.material_id ) AS goodsIds,
+            pi.qty,
+            GROUP_CONCAT( pim.tax_price ) AS tax_price,
+            pi.total,
+            pi.create_time,
+            pi.create_user,
+            pi.version
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectTotal" resultType="com.senmol.mes.plan.vo.PurchaseInvoiceTotal">
+        SELECT
+            SUM(pi.qty) AS totalStorageQty,
+            SUM(pi.total) AS totalTaxPrice
+            <include refid="condition"/>
+            <include refid="timeInterval"/>
+    </select>
+
+</mapper>
+

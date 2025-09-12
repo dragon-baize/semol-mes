@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.MaterialMapper">
+
+    <select id="getList" resultType="com.senmol.mes.produce.vo.MaterialVo">
+        SELECT
+            m.id,
+            m.code,
+            m.title,
+            m.warehouse_type,
+            m.purchase_cycle,
+            m.unit_id,
+            m.qty,
+            m.min_pack_qty,
+            m.moq,
+            m.type,
+            m.model,
+            m.valuation,
+            m.life_type,
+            m.life_info,
+            m.reminder_time,
+            m.remarks
+        FROM
+            produce_material m
+        <where>
+            m.deleted = 0
+            <if test="type != null">
+                AND m.type = #{type}
+            </if>
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    plan_supplier_goods sg
+                WHERE
+                    sg.type = 2
+                  AND sg.goods_id = m.id
+                <if test="supplierId != null">
+                    AND sg.pid != #{supplierId}
+                </if>
+            )
+        </where>
+        ORDER BY m.create_time DESC
+    </select>
+
+</mapper>
+

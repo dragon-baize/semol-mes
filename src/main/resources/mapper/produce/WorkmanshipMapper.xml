@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.WorkmanshipMapper">
+
+    <select id="getUnboundList" resultType="com.senmol.mes.produce.vo.WorkmanshipPojo">
+        SELECT
+            w.id,
+            w.title,
+            GROUP_CONCAT( mx.wms_version ) AS wmsVersions
+        FROM
+            produce_workmanship_mx mx
+                LEFT JOIN produce_workmanship w ON w.id = mx.pid
+        WHERE
+            w.deleted = 0
+          AND mx.status = 0
+          AND mx.product_line_id = #{productLineId}
+        GROUP BY
+            mx.pid
+    </select>
+
+    <select id="getVoById" resultType="com.senmol.mes.produce.vo.WorkmanshipVo">
+        SELECT
+            w.id,
+            w.title,
+            mx.pack_id,
+            mx.product_line_id,
+            mx.notes,
+            mx.status,
+            mx.remark,
+            GROUP_CONCAT( p.id ) AS strIds
+        FROM
+            produce_workmanship w
+                LEFT JOIN produce_workmanship_mx mx ON w.id = mx.pid
+                LEFT JOIN produce_process p ON mx.pid = p.workmanship_id AND p.wms_version = mx.wms_version
+        WHERE
+            w.id = #{id}
+          AND mx.wms_version = #{version}
+    </select>
+
+    <select id="selectAll" resultType="com.senmol.mes.produce.vo.WorkmanshipPojo">
+        SELECT
+            w.id,
+            w.title,
+            mx.pack_id,
+            mx.product_line_id,
+            mx.notes,
+            mx.status,
+            mx.remark,
+            w.create_time,
+            w.create_user,
+            w.update_time,
+            w.update_user,
+            w.version
+        FROM
+            produce_workmanship w
+                LEFT JOIN produce_workmanship_mx mx ON w.id = mx.pid AND w.version = mx.wms_version
+        WHERE
+            w.deleted = 0
+        <if test="arg.id != null">
+            AND w.id = #{arg.id}
+        </if>
+        <if test="arg.title != null and arg.title != ''">
+            AND w.title = #{arg.title}
+        </if>
+        ORDER BY w.create_time DESC
+    </select>
+
+    <select id="getPojoById" resultType="com.senmol.mes.produce.vo.WorkmanshipPojo">
+        SELECT
+            w.id,
+            w.title,
+            mx.pack_id,
+            mx.product_line_id,
+            mx.notes,
+            mx.status,
+            mx.remark,
+            w.create_time,
+            w.create_user,
+            w.update_time,
+            w.update_user,
+            w.version
+        FROM
+            produce_workmanship w
+                LEFT JOIN produce_workmanship_mx mx ON w.id = mx.pid AND w.version = mx.wms_version
+        WHERE
+            w.deleted = 0
+          AND w.id = #{id}
+    </select>
+
+</mapper>
+

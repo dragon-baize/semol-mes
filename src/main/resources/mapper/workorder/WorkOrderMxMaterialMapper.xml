@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workorder.mapper.WorkOrderMxMaterialMapper">
+
+    <select id="getMaterials" resultType="com.senmol.mes.common.utils.OutboundMaterial">
+        SELECT DISTINCT
+            omm.material_id AS goodsId,
+            omm.type,
+            (
+                SELECT
+                    SUM( s.residue_qty )
+                FROM
+                    warehouse_storage s
+                WHERE
+                    omm.material_id = s.goods_id
+                  AND s.residue_qty > 0
+                  AND s.status > 0
+            ) AS storageQty,
+            SUM( omm.receive_qty ) AS baseQty,
+            m.qty
+        FROM
+            work_order_mx_material omm
+                LEFT JOIN work_order_mx om ON omm.mx_id = om.id
+                LEFT JOIN work_order_material m ON om.id = m.mx_id AND omm.material_id = m.material_id
+        WHERE
+            om.code = #{mxCode}
+          AND om.status = 1
+          AND om.finish = 0
+          AND om.deleted = 0
+        GROUP BY
+            omm.material_id,
+            omm.type
+    </select>
+
+    <select id="getValidMaterial" resultType="java.lang.Long">
+        SELECT DISTINCT
+            om.material_id
+        FROM
+            work_order_material om
+            LEFT JOIN work_order_mx_process omp ON om.mx_id = omp.mx_id AND om.process_id = omp.process_id
+        WHERE
+            om.mx_id = #{mxId}
+          AND omp.status <![CDATA[<]]> 2
+          AND om.material_id IS NOT NULL;
+    </select>
+
+    <select id="selectByMxId" resultType="com.senmol.mes.workorder.vo.OrderMaterial">
+        SELECT
+            rm.goods_id AS id,
+            rm.stock_id,
+            rm.qty AS receiveQty,
+            rm.type,
+            rm.create_time,
+            r.batch_no
+        FROM
+            work_order_mx mx
+                LEFT JOIN plan_outbound o ON mx.code = o.order_no
+                LEFT JOIN warehouse_retrieval r ON r.pick_order = o.code
+                LEFT JOIN warehouse_retrieval_mx rm ON rm.retrieval_id = r.id
+        WHERE
+            mx.deleted = 0
+          AND o.deleted = 0
+          AND mx.id = #{mxId}
+          AND mx.status != 2
+          AND mx.finish = 0
+          AND rm.qty > rm.used_qty
+          <if test="materialIds != null and materialIds.size() > 0">
+              AND rm.goods_id IN (
+                  <foreach collection="materialIds" item="materialId" separator=",">
+                      #{materialId}
+                  </foreach>
+                )
+          </if>
+    </select>
+
+    <select id="preInventory" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            mp.mrp_id AS aId,
+            p.product_id AS bId,
+            om.code AS aStr,
+            IFNULL( SUM( obm.qty ), SUM( omm.receive_qty )) AS qty
+        FROM
+            plan_mrp_produce mp
+                LEFT JOIN plan_produce p ON mp.produce_id = p.id
+                LEFT JOIN work_order_mx om ON p.id = om.pid
+                LEFT JOIN work_order_mx_material omm ON om.id = omm.mx_id
+                LEFT JOIN plan_outbound ob ON om.code = ob.order_no
+                LEFT JOIN plan_outbound_mx obm ON ob.id = obm.outbound_id
+        WHERE
+            (ob.status <![CDATA[<]]> 2  OR ob.status is NULL)
+          AND om.status != 2
+          AND mp.mrp_id IN (
+                <foreach collection="mrpIds" item="mrpId" separator=",">
+                    #{mrpId}
+                </foreach>
+            )
+          AND omm.material_id = #{materialId}
+        GROUP BY
+            om.code
+    </select>
+
+    <select id="getMaterial" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            om.code AS aStr,
+            om.pid AS bId,
+            omm.material_id AS aId,
+            SUM( omm.receive_qty ) AS qty
+        FROM
+            work_order_mx om
+                LEFT JOIN work_order_mx_material omm ON om.id = omm.mx_id
+        WHERE
+            om.finish = 0
+          AND om.status != 2
+          AND om.deleted = 0
+          AND omm.material_id IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+        GROUP BY
+            om.code, omm.material_id
+    </select>
+
+    <select id="retrospect" resultType="com.senmol.mes.workorder.vo.OrderInfo">
+        SELECT
+            om.code,
+            p.product_id,
+            b.workmanship_id,
+            b.wms_version,
+            om.create_time,
+            om.create_user
+        FROM
+            produce_bom b
+                LEFT JOIN plan_produce p ON b.product_id = p.product_id
+                LEFT JOIN work_order_mx om ON p.id = om.pid
+        WHERE
+            p.deleted = 0
+          AND om.status != 2
+          AND om.deleted = 0
+          AND om.code = #{batchNo}
+        ORDER BY
+            om.code DESC
+    </select>
+
+</mapper>
+

@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.PurchaseOrderMapper">
+
+    <sql id="condition">
+        FROM
+            plan_purchase_order p
+            <if test="po.type == 1">
+                LEFT JOIN produce_product pr on p.material_id = pr.id
+            </if>
+            <if test="po.type == 2">
+                LEFT JOIN produce_material m on p.material_id = m.id
+            </if>
+            LEFT JOIN plan_requisition r ON p.requisition_id = r.id
+        WHERE
+            p.deleted = 0
+          AND r.deleted = 0
+        <if test="po.id != null">
+            AND p.id = #{po.id}
+        </if>
+        <if test="po.orderNo != null and po.orderNo != ''">
+            AND p.order_no = #{po.orderNo}
+        </if>
+        <if test="po.title != null and po.title != ''">
+            AND p.title LIKE CONCAT('%', #{po.title}, '%')
+        </if>
+        <if test="po.materialId != null">
+            AND p.material_id = #{po.materialId}
+        </if>
+        <if test="po.materialCode != null and po.type == 1">
+            AND pr.code LIKE CONCAT('%', #{po.materialCode}, '%')
+        </if>
+        <if test="po.materialCode != null and po.type == 2">
+            AND m.code LIKE CONCAT('%', #{po.materialCode}, '%')
+        </if>
+        <if test="po.type != null">
+            AND p.type = #{po.type}
+        </if>
+        <if test="po.requisitionId != null">
+            AND p.requisition_id = #{po.requisitionId}
+        </if>
+        <if test="po.supplierId != null and po.supplierId != ''">
+            AND p.supplier_id = #{po.supplierId}
+        </if>
+        <if test="po.isCustomerSupply != null">
+            AND p.is_customer_supply = #{po.isCustomerSupply}
+        </if>
+        <if test="po.status != null and po.status == 2">
+            AND p.status != #{po.status}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="page.startTime != null">
+            AND DATE(p.create_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null">
+            AND DATE(p.create_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        ORDER BY p.status, p.update_time DESC
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null">
+            AND DATE(p.create_time) >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND DATE(p.create_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.PurchaseOrderVo">
+        SELECT
+            p.id,
+            p.order_no,
+            p.title,
+            p.material_id,
+            <if test="po.type == 1">
+                pr.code AS materialCode,
+                pr.title AS materialTitle,
+                pr.unit_id,
+            </if>
+            <if test="po.type == 2">
+                m.code AS materialCode,
+                m.title AS materialTitle,
+                m.unit_id,
+            </if>
+            p.type,
+            p.requisition_id,
+            r.code AS requisitionCode,
+            r.title AS requisitionTitle,
+            p.qty,
+            p.confirm_qty,
+            p.storage_qty,
+            p.require_time,
+            p.purchase_cycle,
+            p.supplier_id,
+            p.advice_purchase_time,
+            p.is_customer_supply,
+            p.price,
+            p.tax_rate,
+            p.tax_price,
+            p.status,
+            p.remark,
+            p.create_time,
+            p.create_user,
+            p.update_time,
+            p.update_user
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectTotal" resultType="com.senmol.mes.plan.vo.PurchaseOrderTotal">
+        SELECT
+            SUM( p.qty ) AS totalQty,
+            SUM( p.confirm_qty ) AS totalConfirmQty,
+            SUM( p.storage_qty ) AS totalStorageQty,
+            SUM( p.price ) AS totalPrice,
+            SUM( p.price * p.tax_rate / 100 * p.confirm_qty ) AS totalTaxRate,
+            SUM( p.tax_price * p.confirm_qty ) AS totalTaxPrice
+        <include refid="condition"/>
+        <include refid="timeInterval"/>
+    </select>
+
+    <select id="getBySiCode" resultType="com.senmol.mes.plan.entity.PurchaseOrderEntity">
+        SELECT
+            po.id,
+            po.order_no,
+            po.confirm_qty,
+            IFNULL(po.storage_qty, 0) AS storageQty
+        FROM
+            plan_purchase_order po
+                LEFT JOIN quality_storage_inspect si ON po.order_no = si.receipt_code
+        WHERE
+            si.code = #{siCode}
+    </select>
+
+    <select id="restockAll" resultType="com.senmol.mes.plan.vo.Restock">
+        SELECT
+            r.receipt,
+            r.mark,
+            r.id,
+            r.batch_no,
+            r.pid,
+            r.order_no,
+            r.supplier_id,
+            r.goods_id,
+            g.code AS goodsCode,
+            g.title AS goodsTitle,
+            g.unit_id,
+            r.type,
+            r.qty,
+            r.tax_price,
+            r.create_time,
+            r.create_user
+        FROM
+            view_receipt_return r
+            <if test="args.type == 2 or args.type == 3">
+                LEFT JOIN produce_material g ON r.goods_id = g.id
+            </if>
+            <if test="args.type == 0 or args.type == 1">
+                LEFT JOIN produce_product g ON r.goods_id = g.id
+            </if>
+        <where>
+            <if test="args.receipt != null">
+                AND r.receipt = #{args.receipt}
+            </if>
+            <if test="args.type != null">
+                AND r.type = #{args.type}
+            </if>
+            <if test="args.mark != null">
+                AND r.mark = #{args.mark}
+            </if>
+            <if test="args.supplierId != null">
+                AND r.supplier_id = #{args.supplierId}
+            </if>
+            <if test="args.goodsCode != null">
+                AND g.code LIKE CONCAT('%', #{args.goodsCode}, '%')
+            </if>
+            <if test="page.startTime != null">
+                AND DATE(r.create_time) >= #{page.startTime}
+            </if>
+            <if test="page.endTime != null">
+                AND DATE(r.create_time) <![CDATA[<=]]> #{page.endTime}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="restockTotal" resultType="com.senmol.mes.plan.vo.RestockTotal">
+        SELECT
+            SUM( r.qty ) AS totalQty,
+            SUM( r.tax_price ) AS totalTaxPrice,
+            SUM( r.tax_price * r.qty ) AS totalPriceTax
+        FROM
+            view_receipt_return r
+            <if test="args.type == 2 or args.type == 3">
+                LEFT JOIN produce_material g ON r.goods_id = g.id
+            </if>
+            <if test="args.type == 0 or args.type == 1">
+                LEFT JOIN produce_product g ON r.goods_id = g.id
+            </if>
+        <where>
+            <if test="args.receipt != null">
+                AND r.receipt = #{args.receipt}
+            </if>
+            <if test="args.type != null">
+                AND r.type = #{args.type}
+            </if>
+            <if test="args.mark != null">
+                AND r.mark = #{args.mark}
+            </if>
+            <if test="args.supplierId != null">
+                AND r.supplier_id = #{args.supplierId}
+            </if>
+            <if test="args.goodsCode != null">
+                AND g.code LIKE CONCAT('%', #{args.goodsCode}, '%')
+            </if>
+            <if test="startTime != null">
+                AND DATE(r.create_time) >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND DATE(r.create_time) <![CDATA[<=]]> #{endTime}
+            </if>
+        </where>
+    </select>
+
+</mapper>
+

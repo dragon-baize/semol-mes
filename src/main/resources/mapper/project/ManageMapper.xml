@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.project.mapper.ManageMapper">
+
+    <select id="getOneById" resultType="com.senmol.mes.project.vo.ManageInfo">
+        SELECT
+            m.id,
+            m.title,
+            m.quote,
+            m.product_id,
+            m.qty,
+            m.node_time,
+            m.notes,
+            m.create_time,
+            m.create_user,
+            GROUP_CONCAT( mu.user_id, '_', mu.is_approve, '_', IFNULL(mu.remarks, '') ) AS userApprove
+        FROM
+            project_manage m
+            LEFT JOIN project_manage_user mu ON m.id = mu.manage_id
+        WHERE
+            m.deleted = 0
+        AND m.id = #{id}
+    </select>
+
+    <select id="getByUserId" resultType="com.senmol.mes.project.entity.Manage">
+        SELECT
+            m.id,
+            m.title,
+            m.level,
+            m.quote,
+            m.product_id,
+            m.qty,
+            m.node_time,
+            m.init_time,
+            m.concept_time,
+            m.devise_time,
+            m.workmanship_time,
+            m.production_time,
+            m.approve_result,
+            m.remarks,
+            m.notes,
+            m.create_time,
+            m.create_user,
+            m.update_time,
+            m.update_user
+        FROM
+            project_manage m
+            LEFT JOIN project_manage_user mu ON m.id = mu.manage_id
+        WHERE
+            m.deleted = 0
+        AND mu.user_id = #{userId}
+        <if test="manage.id != null">
+            AND m.id = #{manage.id}
+        </if>
+        <if test="manage.title != null and manage.title != ''">
+            AND m.title LIKE CONCAT('%', #{manage.title}, '%')
+        </if>
+        <if test="manage.level != null and manage.level != ''">
+            AND m.level = #{manage.level}
+        </if>
+        <if test="manage.productId != null">
+            AND m.product_id = #{manage.productId}
+        </if>
+        <if test="manage.approveResult != null">
+            AND m.approve_result = #{manage.approveResult}
+        </if>
+        <if test="manage.createUser != null">
+            AND m.create_user = #{manage.createUser}
+        </if>
+        <if test="manage.updateUser != null">
+            AND m.update_user = #{manage.updateUser}
+        </if>
+        ORDER BY
+            m.create_time DESC
+    </select>
+
+</mapper>
+

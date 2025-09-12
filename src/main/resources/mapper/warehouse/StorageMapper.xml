@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.warehouse.mapper.StorageMapper">
+
+    <select id="getKcl" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            goods_id AS aId,
+            SUM( residue_qty ) AS qty
+        FROM
+            warehouse_storage
+        WHERE
+            goods_id IN (
+                <foreach collection="goodIds" item="goodId" separator=",">
+                    #{goodId}
+                </foreach>
+            )
+        <if test="type != null">
+            AND type = #{type}
+        </if>
+          AND residue_qty > 0
+          AND status > 0
+        GROUP BY
+            goods_id
+    </select>
+
+    <sql id="condition">
+        FROM
+            warehouse_storage s
+            <if test="storage.type == 0 or storage.type == 1">
+                LEFT JOIN produce_product g ON g.id = s.goods_id
+            </if>
+            <if test="storage.type == 2 or storage.type == 3">
+                LEFT JOIN produce_material g ON g.id = s.goods_id
+            </if>
+        WHERE
+            1 = 1
+        <if test="storage.id != null">
+            AND s.id = #{storage.id}
+        </if>
+        <if test="storage.batchNo != null and storage.batchNo != ''">
+            AND s.batch_no = #{storage.batchNo}
+        </if>
+        <if test="storage.siCode != null and storage.siCode != ''">
+            AND s.si_code = #{storage.siCode}
+        </if>
+        <if test="storage.goodsId != null">
+            AND s.goods_id = #{storage.goodsId}
+        </if>
+        <if test="storage.type != null and storage.goodsCode != null and storage.goodsCode != ''">
+            AND g.code LIKE CONCAT('%', #{storage.goodsCode}, '%')
+        </if>
+        <if test="storage.type != null">
+            AND s.type = #{storage.type}
+        </if>
+        <if test="storage.residueQty != null">
+            AND s.residue_qty > 0
+        </if>
+        <if test="storage.status != null">
+            AND s.status = #{storage.status}
+        </if>
+        <if test="storage.stockId != null">
+            AND s.stock_id = #{storage.stockId}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="page.startTime != null">
+            AND DATE(s.create_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null">
+            AND DATE(s.create_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        ORDER BY s.create_time DESC
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null">
+            AND DATE(s.create_time) >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND DATE(s.create_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="selectAll" resultType="com.senmol.mes.warehouse.vo.StorageVo">
+        SELECT
+            s.id,
+            s.batch_no,
+            s.si_code,
+            s.goods_id,
+            <if test="storage.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            s.type,
+            s.qty,
+            s.residue_qty,
+            s.status,
+            s.life_type,
+            s.life_info,
+            s.stock_id,
+            s.remarks,
+            s.create_time,
+            s.create_user,
+            s.update_time,
+            s.update_user
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectTotal" resultType="com.senmol.mes.warehouse.page.StorageTotal">
+        SELECT
+            SUM( s.qty ) AS totalQty,
+            SUM( s.residue_qty ) AS totalResidueQty
+        <include refid="condition"/>
+        <include refid="timeInterval"/>
+    </select>
+
+    <select id="getList" resultType="com.senmol.mes.warehouse.vo.StorageVo">
+        SELECT
+            s.id,
+            s.batch_no,
+            s.si_code,
+            s.goods_id,
+            <if test="storage.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            s.type,
+            s.qty,
+            s.residue_qty,
+            s.status,
+            s.life_type,
+            s.life_info,
+            s.stock_id,
+            s.source,
+            s.remarks,
+            s.create_time,
+            s.create_user,
+            s.update_time,
+            s.update_user
+        FROM
+            warehouse_storage s
+            <if test="storage.type == 0 or storage.type == 1">
+                LEFT JOIN produce_product g ON g.id = s.goods_id
+            </if>
+            <if test="storage.type == 2 or storage.type == 3">
+                LEFT JOIN produce_material g ON g.id = s.goods_id
+            </if>
+        <where>
+            s.residue_qty > 0
+            <if test="storage.type != null">
+                AND s.type = #{storage.type}
+            </if>
+            <if test="storage.goodsId != null">
+                AND s.goods_id = #{storage.goodsId}
+            </if>
+            <if test="storage.type != null and storage.goodsCode != null and storage.goodsCode != ''">
+                AND g.code = #{storage.goodsCode}
+            </if>
+        </where>
+    </select>
+
+    <select id="getByStockId" resultType="com.senmol.mes.warehouse.vo.StorageVo">
+        SELECT
+            s.id,
+            s.batch_no,
+            s.si_code,
+            s.goods_id,
+            <if test="type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            s.type,
+            s.qty,
+            s.residue_qty,
+            s.status,
+            s.life_type,
+            s.life_info
+        FROM
+            warehouse_storage s
+            <if test="type == 0 or type == 1">
+                LEFT JOIN produce_product g ON g.id = s.goods_id
+            </if>
+            <if test="type == 2 or type == 3">
+                LEFT JOIN produce_material g ON g.id = s.goods_id
+            </if>
+        WHERE
+            s.stock_id = #{stockId}
+          AND s.residue_qty > 0
+    </select>
+
+    <select id="overviewData" resultType="com.senmol.mes.warehouse.vo.StorageInfo">
+        SELECT
+            s.goods_id,
+            <if test="type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            <if test="type == 0 or type == 1">
+                g.product_mode,
+            </if>
+            <if test="type == 2 or type == 3">
+                g.min_pack_qty,
+            </if>
+            s.type,
+            SUM( s.residue_qty ) AS residueQty,
+            s.life_type
+        FROM
+            warehouse_storage s
+            <if test="type == 0 or type == 1">
+                LEFT JOIN produce_product g ON g.id = s.goods_id
+            </if>
+            <if test="type == 2 or type == 3">
+                LEFT JOIN produce_material g ON g.id = s.goods_id
+            </if>
+        WHERE
+            s.type = #{type}
+          AND s.residue_qty > 0
+        <if test="qp != null and qp != ''">
+            AND (g.title LIKE CONCAT('%', #{qp}, '%') OR g.code LIKE CONCAT('%', #{qp}, '%'))
+        </if>
+        GROUP BY
+            s.goods_id,
+            s.life_type
+    </select>
+
+    <sql id="condition2">
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code AND si.deleted = 0
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no AND po.deleted = 0
+        <where>
+            <if test="arg.goodsId != null">
+                AND s.goods_id = #{arg.goodsId}
+            </if>
+            <if test="arg.type != null">
+                AND s.type = #{arg.type}
+            </if>
+            <if test="page.startTime != null">
+                AND DATE(s.create_time) >= #{page.startTime}
+            </if>
+            <if test="page.endTime != null">
+                AND DATE(s.create_time) <![CDATA[<=]]> #{page.endTime}
+            </if>
+        </where>
+    </sql>
+
+    <select id="summary" resultType="com.senmol.mes.warehouse.entity.StorageEntity">
+        SELECT
+            <if test="type == 2">
+                r.product_id AS id,
+            </if>
+            s.goods_id,
+            s.type,
+            s.qty,
+            s.residue_qty,
+            s.create_time,
+            IFNULL( po.tax_price, 0 ) AS taxPrice
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code AND si.deleted = 0
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no AND po.deleted = 0
+                <if test="type == 2">
+                    LEFT JOIN plan_requisition r ON po.requisition_id = r.id AND r.deleted = 0
+                </if>
+        WHERE
+            s.type = #{type}
+            <if test="ids != null and ids.size() > 0">
+                AND s.goods_id IN (
+                    <foreach collection="ids" item="id" separator=",">
+                        #{id}
+                    </foreach>
+                )
+            </if>
+            <if test="endTime != null">
+                AND DATE(s.create_time) <![CDATA[<=]]> #{endTime}
+            </if>
+    </select>
+
+    <select id="getTotal" resultType="com.senmol.mes.warehouse.page.SummaryTotal">
+        SELECT
+            SUM( s.qty ) AS totalInQty,
+            SUM( IFNULL( po.tax_price, 0 ) * s.qty ) AS totalInAmount,
+            SUM( s.qty - s.residue_qty ) AS totalOutQty,
+            SUM( IFNULL( po.tax_price, 0 ) * ( s.qty - s.residue_qty ) ) AS totalOutAmount
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code AND si.deleted = 0
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no AND po.deleted = 0
+        <where>
+            <if test="arg.type != null">
+                AND s.type = #{arg.type}
+            </if>
+            <if test="startTime != null">
+                AND DATE(s.create_time) >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND DATE(s.create_time) <![CDATA[<=]]> #{endTime}
+            </if>
+            <if test="arg.type == 0 or arg.type == 1">
+                AND EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        produce_product p
+                    WHERE
+                        p.deleted = 0
+                      AND p.id = s.goods_id
+                )
+            </if>
+            <if test="arg.type == 2 or arg.type == 3">
+                AND EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        produce_material m
+                    WHERE
+                        m.deleted = 0
+                      AND m.id = s.goods_id
+                )
+            </if>
+        </where>
+    </select>
+
+    <select id="getPreTotal" resultType="com.senmol.mes.warehouse.page.SummaryTotal">
+        SELECT
+            SUM( s.residue_qty ) AS totalPreQty,
+            SUM( IFNULL( po.tax_price, 0 ) * s.residue_qty ) AS totalPreAmount
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code AND si.deleted = 0
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no AND po.deleted = 0
+        <where>
+            <if test="type != null">
+                AND s.type = #{type}
+            </if>
+            <if test="startTime != null">
+                AND DATE(s.create_time) <![CDATA[<]]> #{startTime}
+            </if>
+            <if test="type == 0 or type == 1">
+                AND EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        produce_product p
+                    WHERE
+                        p.deleted = 0
+                      AND p.id = s.goods_id
+                )
+            </if>
+            <if test="type == 2 or type == 3">
+                AND EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        produce_material m
+                    WHERE
+                        m.deleted = 0
+                      AND m.id = s.goods_id
+                )
+            </if>
+        </where>
+    </select>
+
+    <select id="inventory" resultType="com.senmol.mes.warehouse.vo.Inventory">
+        SELECT
+            sign,
+            id,
+            code,
+            si_code,
+            batch_no,
+            goods_id,
+            goods_code,
+            goods_title,
+            type,
+            qty,
+            remarks,
+            create_time
+        FROM
+            view_inventory_mx
+        <where>
+            <if test="inventory.sign != null">
+                AND sign = #{inventory.sign}
+            </if>
+            <if test="inventory.goodsCode != null and inventory.goodsCode != ''">
+                AND goods_code = #{inventory.goodsCode}
+            </if>
+            <if test="page.startTime != null">
+                AND DATE(create_time) >= #{page.startTime}
+            </if>
+            <if test="page.endTime != null">
+                AND DATE(create_time) <![CDATA[<=]]> #{page.endTime}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="sumInventory" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( qty ), 0 )
+        FROM
+            view_inventory_mx
+        <where>
+            <if test="inventory.sign != null">
+                AND sign = #{inventory.sign}
+            </if>
+            <if test="inventory.goodsCode != null and inventory.goodsCode != ''">
+                AND goods_code = #{inventory.goodsCode}
+            </if>
+            <if test="startTime != null">
+                AND DATE(create_time) >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND DATE(create_time) <![CDATA[<=]]> #{endTime}
+            </if>
+        </where>
+    </select>
+
+    <select id="goodsMx" resultType="com.senmol.mes.warehouse.vo.GoodsMx">
+        SELECT
+            status,
+            SUM( residue_qty ) AS residueQty
+        FROM
+            warehouse_storage
+        WHERE
+            goods_id = #{goodsId}
+          AND residue_qty > 0
+        GROUP BY
+            status
+    </select>
+
+    <update id="modifyBatch">
+        UPDATE warehouse_storage
+        SET residue_qty =
+            CASE
+                id
+                <foreach collection="storages" item="storage">
+                    WHEN #{storage.id} THEN
+                        GREATEST(residue_qty - #{storage.residueQty}, 0)
+                </foreach>
+                END,
+            update_time = #{updateTime},
+            update_user = #{updateUser}
+        WHERE
+            id IN (
+                <foreach collection="storages" item="storage" separator=",">
+                    #{storage.id}
+                </foreach>
+        )
+    </update>
+
+    <update id="updateBatchByBatchNo">
+        UPDATE warehouse_storage
+        SET residue_qty =
+            CASE
+                batch_no
+                <foreach collection="storages" item="storage">
+                    WHEN #{storage.batchNo} THEN
+                        residue_qty + #{storage.residueQty}
+                </foreach>
+            END
+        WHERE
+            batch_no IN (
+                <foreach collection="storages" item="storage" separator=",">
+                    #{storage.batchNo}
+                </foreach>
+            )
+    </update>
+
+    <select id="getGoodsByOutBoundCode" resultType="com.senmol.mes.warehouse.vo.GoodsInfo">
+        SELECT
+            s.batch_no,
+            s.si_code,
+            s.goods_id,
+            s.type,
+            s.residue_qty,
+            s.stock_id,
+            s.remarks,
+            s.create_time,
+            om.qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+                LEFT JOIN warehouse_storage s ON om.goods_id = s.goods_id
+        WHERE
+            o.code = #{code}
+          AND s.status > 0
+          AND s.residue_qty > 0
+    </select>
+
+    <select id="getQtyByPurchaseCode" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( si.censorship_qty ), 0 )
+        FROM
+            quality_storage_inspect si
+        WHERE
+            si.deleted = 0
+          AND si.receipt_code = #{code}
+    </select>
+
+    <select id="getByCgDh" resultType="com.senmol.mes.warehouse.entity.StorageEntity">
+        SELECT
+            1 AS sign,
+            s.id,
+            s.batch_no,
+            s.si_code,
+            s.goods_id,
+            s.type,
+            s.qty,
+            po.price,
+            po.tax_price,
+            s.residue_qty,
+            s.status,
+            s.source,
+            s.create_time
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no
+        WHERE
+            si.deleted = 0
+            <if test="invoice != 2">
+              AND s.invoice = #{invoice}
+            </if>
+            <if test="invoice == 2">
+                AND s.invoice IS NULL
+            </if>
+        AND si.receipt_code IN (
+            <foreach collection="codes" item="code" separator=",">
+                #{code}
+            </foreach>
+        )
+        UNION ALL
+        SELECT
+            2 AS sign,
+            pr.id,
+            pr.batch_no,
+            NULL AS si_code,
+            pr.goods_id,
+            pr.type,
+            pr.qty,
+            pr.price,
+            pr.tax_price,
+            0 AS residue_qty,
+            pr.status,
+            NULL AS source,
+            pr.create_time
+        FROM
+            plan_purchase_returns pr
+        WHERE
+            pr.deleted = 0
+            <if test="invoice != 2">
+                AND pr.invoice = #{invoice}
+            </if>
+            <if test="invoice == 2">
+                AND pr.invoice IS NULL
+            </if>
+          AND pr.code IN (
+            <foreach collection="codes" item="code" separator=",">
+                #{code}
+            </foreach>
+        )
+    </select>
+
+    <select id="getGoods" resultType="com.senmol.mes.warehouse.vo.ProduceGoods">
+        SELECT
+            m.id AS goodsId,
+            m.code AS goodsCode,
+            IF( m.type = 0, 3, 2 ) AS type,
+            m.life_type,
+            m.life_info
+        FROM
+            produce_material m
+        WHERE
+            m.deleted = 0 UNION ALL
+        SELECT
+            p.id AS goodsId,
+            p.code AS goodsCode,
+            IF( p.type = 0, 1, 0 ) AS type,
+            NULL AS lifeType,
+            p.life_info
+        FROM
+            produce_product p
+        WHERE
+            p.deleted = 0
+    </select>
+
+    <select id="getByGoodsIds" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            s.goods_id AS aId,
+            SUM( s.residue_qty ) AS qty
+        FROM
+            warehouse_storage s
+        WHERE
+            s.goods_id IN (
+                <foreach collection="goodsIds" separator="," item="goodsId">
+                    #{goodsId}
+                </foreach>
+                )
+          AND s.residue_qty > 0
+          AND s.status > 0
+        GROUP BY
+            s.goods_id
+    </select>
+
+    <select id="getReturns" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( s.residue_qty ), 0 )
+        FROM
+            warehouse_storage s
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code AND si.deleted = 0
+        WHERE
+            si.receipt_code = #{receiptCode}
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO warehouse_storage(
+            id, batch_no, si_code,
+            goods_id, type, qty,
+            residue_qty, status, life_type,
+            life_info, stock_id, remarks,
+            source, create_time, create_user,
+            update_time, update_user)
+        VALUES
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.id}, #{entity.batchNo}, #{entity.siCode},
+             #{entity.goodsId}, #{entity.type}, #{entity.qty},
+             #{entity.residueQty}, #{entity.status},#{entity.lifeType},
+             #{entity.lifeInfo}, #{entity.stockId}, #{entity.remarks},
+             #{entity.source}, #{entity.createTime}, #{entity.createUser},
+             #{entity.updateTime}, #{entity.updateUser})
+        </foreach>
+    </insert>
+
+    <update id="updateStatusByIds">
+        UPDATE warehouse_storage
+        SET status =
+            CASE
+                id
+                <foreach collection="entities" item="entity">
+                    WHEN #{entity.id} THEN #{entity.status}
+                </foreach>
+            END,
+            residue_qty =
+            CASE
+                id
+            <foreach collection="entities" item="entity">
+                WHEN #{entity.id} THEN #{entity.residueQty}
+            </foreach>
+            END,
+            update_time = #{updateTime},
+            update_user = #{updateUser}
+        WHERE
+            id IN (
+                <foreach collection="entities" item="entity" separator=",">
+                    #{entity.id}
+                </foreach>
+            )
+    </update>
+
+    <update id="setInvoices">
+        UPDATE warehouse_storage
+        SET invoice =
+            CASE
+                id
+                <foreach collection="storageIds" item="storageId">
+                    WHEN #{storageId} THEN #{invoice}
+                </foreach>
+            END
+        WHERE
+            id IN (
+            <foreach collection="storageIds" item="storageId" separator=",">
+                #{storageId}
+            </foreach>
+        )
+    </update>
+
+</mapper>
+

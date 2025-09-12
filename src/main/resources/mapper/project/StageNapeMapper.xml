@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.project.mapper.StageNapeMapper">
+
+    <select id="getOneById" resultType="com.senmol.mes.project.vo.StageNapeInfo">
+        SELECT
+            sn.id,
+            sn.belong,
+            sn.title,
+            sn.create_time,
+            sn.create_user,
+            GROUP_CONCAT( nu.user_id, '_', nu.is_approve, '_', IFNULL(nu.remarks, '') ) AS userApprove
+        FROM
+            project_stage_nape sn
+            LEFT JOIN project_nape_user nu ON sn.id = nu.nape_id
+        WHERE
+            sn.deleted = 0
+        AND sn.id = #{id}
+    </select>
+
+    <select id="getByUserId" resultType="com.senmol.mes.project.entity.StageNape">
+        SELECT
+            sn.id,
+            sn.title,
+            sn.remarks,
+            sn.type,
+            sn.is_approve,
+            sn.belong,
+            sn.is_view,
+            sn.approve_result,
+            sn.STATUS,
+            sn.create_time,
+            sn.create_user,
+            sn.update_time,
+            sn.update_user
+        FROM
+            project_stage_nape sn
+            LEFT JOIN project_nape_user nu ON sn.id = nu.nape_id
+        WHERE
+            sn.deleted = 0
+        AND sn.is_approve = 1
+        AND nu.user_id = #{userId}
+        <if test="nape.id != null">
+            AND sn.id = #{nape.id}
+        </if>
+        <if test="nape.title != null and nape.title != ''">
+            AND sn.title LIKE CONCAT('%', #{nape.title}, '%')
+        </if>
+        <if test="nape.type != null">
+            AND sn.type = #{nape.type}
+        </if>
+        <if test="nape.belong != null">
+            AND sn.belong = #{nape.belong}
+        </if>
+        <if test="nape.isView != null">
+            AND sn.is_view = #{nape.isView}
+        </if>
+        <if test="nape.approveResult != null">
+            AND sn.approve_result = #{nape.approveResult}
+        </if>
+        <if test="nape.createUser != null">
+            AND sn.create_user = #{nape.createUser}
+        </if>
+        <if test="nape.updateUser != null">
+            AND sn.update_user = #{nape.updateUser}
+        </if>
+        ORDER BY
+            sn.create_time DESC
+    </select>
+
+    <select id="getByManageId" resultType="com.senmol.mes.project.vo.NapeTree">
+        SELECT
+            sn.id,
+            sn.title,
+            sn.dept_id,
+            sn.belong,
+            COUNT( nf.id ) AS fileNum
+        FROM
+            project_manage_nape mn
+            LEFT JOIN project_stage_nape sn ON mn.nape_id = sn.id
+            AND sn.deleted = 0
+            LEFT JOIN project_nape_file nf ON sn.id = nf.nape_id
+            AND nf.manage_id = #{manageId}
+            AND nf.deleted = 0
+        WHERE
+            mn.manage_id = #{manageId}
+        GROUP BY
+            mn.nape_id
+        ORDER BY
+            sn.belong , sn.create_time
+    </select>
+
+    <select id="selectAll" resultType="com.senmol.mes.project.entity.StageNape">
+        SELECT
+            sn.id,
+            sn.title,
+            sn.dept_id,
+            d.title AS deptTitle,
+            sn.remarks,
+            sn.type,
+            sn.is_approve,
+            sn.belong,
+            sn.is_view,
+            sn.approve_result,
+            sn.status,
+            sn.deleted,
+            sn.create_time,
+            sn.create_user,
+            sn.update_time,
+            sn.update_user
+        FROM
+            project_stage_nape sn
+            LEFT JOIN sys_dept d ON sn.dept_id = d.id
+        WHERE
+            sn.deleted = 0
+        <if test="nape.id != null">
+            AND sn.id = #{nape.id}
+        </if>
+        <if test="nape.title != null and nape.title != ''">
+            AND sn.title LIKE CONCAT('%', #{nape.title}, '%')
+        </if>
+        <if test="nape.type != null">
+            AND sn.type = #{nape.type}
+        </if>
+        <if test="nape.isApprove != null">
+            AND sn.is_approve = #{nape.isApprove}
+        </if>
+        <if test="nape.belong != null">
+            AND sn.belong = #{nape.belong}
+        </if>
+        <if test="nape.isView != null">
+            AND sn.is_view = #{nape.isView}
+        </if>
+        <if test="nape.approveResult != null">
+            AND sn.approve_result = #{nape.approveResult}
+        </if>
+        <if test="nape.status != null">
+            AND sn.status = #{nape.status}
+        </if>
+        <if test="nape.isApprove == 1">
+            AND EXISTS (
+                SELECT
+                    1
+                FROM
+                    project_nape_user nu
+                WHERE
+                    nu.nape_id = sn.id
+                AND nu.user_id = #{userId}
+            )
+        </if>
+        ORDER BY sn.create_time DESC
+    </select>
+
+</mapper>
+

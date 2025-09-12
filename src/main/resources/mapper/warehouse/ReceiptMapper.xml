@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.warehouse.mapper.ReceiptMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.warehouse.vo.ReceiptVo">
+        SELECT
+            r.id,
+            r.batch_no,
+            r.plan_order_no,
+            r.goods_id,
+            <if test="re.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            r.type,
+            r.plan_qty,
+            r.storage_qty,
+            r.current_qty,
+            r.price,
+            r.tax_rate,
+            r.tax_price,
+            r.sign,
+            r.status,
+            r.is_finish,
+            r.customer_id,
+            r.create_time,
+            r.create_user,
+            r.update_time,
+            r.update_user
+        FROM
+            warehouse_receipt r
+            <if test="re.type == 0 or re.type == 1">
+                LEFT JOIN produce_product g ON g.id = r.goods_id
+            </if>
+            <if test="re.type == 2 or re.type == 3">
+                LEFT JOIN produce_material g ON g.id = r.goods_id
+            </if>
+        WHERE
+            r.deleted = 0
+        <if test="re.id != null">
+            AND r.id = #{re.id}
+        </if>
+        <if test="re.batchNo != null and re.batchNo != ''">
+            AND r.batch_no = #{re.batchNo}
+        </if>
+        <if test="re.planOrderNo != null and re.planOrderNo != ''">
+            AND r.plan_order_no = #{re.planOrderNo}
+        </if>
+        <if test="re.goodsId != null">
+            AND r.goods_id = #{re.goodsId}
+        </if>
+        <if test="re.type != null and re.goodsCode != null and re.goodsCode != ''">
+            AND g.code LIKE CONCAT('%',  #{re.goodsCode}, '%')
+        </if>
+        <if test="re.type != null">
+            AND r.type = #{re.type}
+        </if>
+        <if test="re.sign != null">
+            AND r.sign = #{re.sign}
+        </if>
+        <if test="re.status != null">
+            AND r.status = #{re.status}
+        </if>
+        <if test="re.isFinish != null">
+            AND r.is_finish = #{re.isFinish}
+        </if>
+        <if test="re.customerId != null">
+            AND r.customer_id = #{re.customerId}
+        </if>
+        <if test="page.startTime != null">
+            AND DATE(r.update_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null">
+            AND DATE(r.update_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="countPlanQty" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( plan_qty ), 0 )
+        FROM
+            warehouse_receipt
+        WHERE
+            plan_order_no = #{planOrderNo}
+            AND deleted = 0
+    </select>
+
+    <update id="updateStorageQty">
+        UPDATE warehouse_receipt
+        SET storage_qty = storage_qty + #{qty},
+            update_time = #{now},
+            update_user = #{userId}
+        WHERE
+            batch_no = (
+                SELECT
+                    si.batch_no
+                FROM
+                    quality_storage_inspect si
+                WHERE
+                    si.code = #{siCode}
+            )
+    </update>
+
+</mapper>
+

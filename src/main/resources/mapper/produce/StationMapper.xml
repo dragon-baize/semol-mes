@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.StationMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.produce.vo.StationVo">
+        SELECT
+            s.id,
+            s.code,
+            s.title,
+            s.product_line_id,
+            s.device_id,
+            s.remarks,
+            s.create_time,
+            s.create_user,
+            s.update_time,
+            s.update_user
+        FROM
+            produce_station s
+        WHERE
+            s.deleted = 0
+        <if test="station.id != null">
+            AND s.id = #{station.id}
+        </if>
+        <if test="station.code != null and station.code != ''">
+            AND s.code LIKE CONCAT('%', #{station.code}, '%')
+        </if>
+        <if test="station.title != null and station.title != ''">
+            AND s.title LIKE CONCAT('%', #{station.title}, '%')
+        </if>
+        <if test="station.productLineId != null">
+            AND s.product_line_id = #{station.productLineId}
+        </if>
+        <if test="station.deviceId != null">
+            AND s.device_id = #{station.deviceId}
+        </if>
+        GROUP BY
+            s.id, s.device_id, s.product_line_id
+        ORDER BY s.create_time DESC
+    </select>
+
+    <select id="getByProcessIds" resultType="com.senmol.mes.produce.vo.MergesInfo">
+        SELECT
+            s.id AS stationId,
+            s.code AS stationCode,
+            s.title AS stationTitle,
+            sp.id AS processId
+        FROM
+            produce_station s
+            LEFT JOIN produce_process sp ON s.id = sp.station_id
+        WHERE
+            s.deleted = 0
+            AND sp.id IN
+            <foreach collection="processIds" item="processId" open="(" separator="," close=")">
+                #{processId}
+            </foreach>
+    </select>
+
+    <select id="getByUserId" resultType="com.senmol.mes.produce.vo.StationInfo">
+        SELECT
+            s.id,
+            s.code,
+            s.title,
+            p.id AS pid,
+            p.title AS pTitle
+        FROM
+                produce_station s
+                LEFT JOIN produce_station_user su ON s.id = su.station_id
+                LEFT JOIN produce_process p ON su.station_id = p.station_id
+        WHERE
+            s.deleted = 0
+            AND s.product_line_id = #{productLineId}
+            AND su.user_id = #{userId}
+    </select>
+
+    <select id="getStationByProcessId" resultType="com.senmol.mes.produce.vo.BomMaterialVo">
+        SELECT
+            s.id AS stationId,
+            s.device_id,
+            p.id AS processId
+        FROM
+            produce_station s
+                LEFT JOIN produce_process p ON s.id = p.station_id
+        WHERE
+            s.deleted = 0
+          AND p.deleted = 0
+          AND p.id IN (
+              <foreach collection="processIds" item="processId" separator=",">
+                  #{processId}
+              </foreach>
+            )
+    </select>
+
+    <select id="getByCode" resultType="com.senmol.mes.produce.vo.StationPojo">
+        SELECT
+            s.id,
+            s.code,
+            s.title,
+            s.password,
+            s.product_line_id,
+            pl.title AS productLineTitle,
+            s.device_id,
+            p.id AS processId,
+            p.title AS processTitle
+        FROM
+            produce_station s
+                INNER JOIN produce_product_line pl ON s.product_line_id = pl.id
+                LEFT JOIN produce_process p ON s.id = p.station_id
+        WHERE
+            s.code = #{code}
+          AND s.deleted = 0
+          AND pl.deleted = 0
+          AND p.deleted = 0
+    </select>
+
+</mapper>
+

@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.ProduceMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.ProduceVo">
+        SELECT
+            p1.id,
+            p1.code,
+            p1.title,
+            p1.order_no,
+            p1.custom_id,
+            p1.product_id,
+            p2.code AS productCode,
+            p2.title AS productTitle,
+            p2.type AS productType,
+            p2.product_line_id,
+            p1.product_qty,
+            p1.rec_qty,
+            p1.delivery_date,
+            p1.expect_date,
+            p1.expect_take_time,
+            p1.reality_finish_time,
+            p1.order_img,
+            p1.status,
+            p1.mrp,
+            p1.shi_ji_sheng_chan_liang,
+            p2.product_cycle,
+            p2.per_batch_qty,
+            p1.waste,
+            p1.is_free,
+            p1.total,
+            p1.printed,
+            p1.remarks,
+            p1.create_time,
+            p1.create_user,
+            p1.update_time,
+            p1.update_user
+        FROM
+            plan_produce p1
+            LEFT JOIN produce_product p2 ON p1.product_id = p2.id
+        WHERE
+            p1.deleted = 0
+        <if test="p.id != null">
+            AND p1.id = #{p.id}
+        </if>
+        <if test="p.code != null and p.code != ''">
+            AND p1.code LIKE CONCAT('%', #{p.code}, '%')
+        </if>
+        <if test="p.title != null and p.title != ''">
+            AND p1.title LIKE CONCAT('%', #{p.title}, '%')
+        </if>
+        <if test="p.productLineId != null">
+            AND p2.product_line_id = #{p.productLineId}
+        </if>
+        <if test="p.orderNo != null and p.orderNo != ''">
+            AND p1.order_no = #{p.orderNo}
+        </if>
+        <if test="p.customId != null and p.customId != ''">
+            AND p1.custom_id = #{p.customId}
+        </if>
+        <if test="p.productId != null">
+            AND p1.product_id = #{p.productId}
+        </if>
+        <if test="p.productCode != null">
+            AND p2.code LIKE CONCAT('%', #{p.productCode}, '%')
+        </if>
+        <if test="p.status != null">
+            AND p1.status = #{p.status}
+        </if>
+        ORDER BY p1.status, p1.create_time DESC
+    </select>
+
+    <select id="byProductLineId" resultType="com.senmol.mes.plan.vo.ProduceVo">
+        SELECT
+            p2.id AS productId,
+            p2.code AS productCode,
+            p2.title AS productTitle,
+            p1.product_qty,
+            p1.expect_date,
+            p1.reality_finish_time
+        FROM
+            plan_produce p1
+                LEFT JOIN produce_product p2 ON p1.product_id = p2.id
+        WHERE
+            p1.deleted = 0
+          AND p2.deleted = 0
+          AND p2.product_line_id = #{productLineId}
+    </select>
+
+    <select id="getSumQty" resultType="com.senmol.mes.plan.vo.ProductQty">
+        SELECT
+            product_id AS goodsId,
+            sum( product_qty ) AS qty
+        FROM
+            plan_produce
+        WHERE
+            status > 0
+          AND status != 2
+          AND product_id IN (
+              <foreach collection="productIds" item="productId" separator=",">
+                  #{productId}
+              </foreach>
+            )
+          AND NOT EXISTS(
+                SELECT
+                    1
+                FROM
+                    plan_mrp m
+                    LEFT JOIN plan_mrp_produce mp ON m.id = mp.mrp_id
+                WHERE
+                    m.deleted = 0
+                    AND m.sale_order_id = #{saleOrderId}
+            )
+        GROUP BY
+            product_id
+    </select>
+
+    <select id="getOne" resultType="com.senmol.mes.plan.vo.ProduceVo">
+        SELECT
+            p1.id,
+            p1.title,
+            p1.order_no,
+            p1.custom_id,
+            p1.product_id,
+            p2.code AS productCode,
+            p2.title AS productTitle,
+            p2.product_line_id,
+            p2.type AS productType,
+            p1.product_qty,
+            p1.delivery_date,
+            p1.expect_date,
+            p1.expect_take_time,
+            p1.reality_finish_time,
+            p1.mrp,
+            p1.shi_ji_sheng_chan_liang,
+            p1.waste,
+            p1.order_img,
+            p1.status,
+            p1.create_time,
+            p1.create_user,
+            p1.update_time,
+            p1.update_user
+        FROM
+            plan_produce p1
+                LEFT JOIN produce_product p2 ON p1.product_id = p2.id
+        WHERE
+            p1.id = #{id}
+          AND p1.deleted = 0
+    </select>
+
+    <select id="getPlanInfo" resultType="com.senmol.mes.workorder.vo.MaterialPojo">
+        SELECT
+            p.id AS pid,
+            p.code AS planCode,
+            p.order_no AS saleOrderCode,
+            p.product_id
+        FROM
+            plan_produce p ON o.plan_id = p.id
+        WHERE
+            o.id IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+    </select>
+
+    <select id="getProductionQty" resultType="com.senmol.mes.plan.vo.ProductQty">
+        SELECT
+            p.product_id AS goodsId,
+            SUM( IF ( p.rec_qty - p.product_qty > 0, 0, p.product_qty - p.rec_qty )) AS qty
+        FROM
+            plan_produce p
+        WHERE
+            p.status != 2
+          AND p.deleted = 0
+          AND p.product_id IN (
+            <foreach collection="productIds" item="productId" separator=",">
+                #{productId}
+            </foreach>
+            )
+        GROUP BY
+            p.product_id
+    </select>
+
+    <select id="statOrder" resultType="com.senmol.mes.workorder.vo.ProductLineInfo">
+        SELECT
+            GROUP_CONCAT( p1.id ) AS orderIds,
+            p2.product_line_id AS id,
+            p1.product_id,
+            IFNULL(SUM( p1.product_qty ), 0) AS planQty,
+            0 AS orderQty,
+            0 AS nonDefective,
+            0 AS defective
+        FROM
+            plan_produce p1
+            LEFT JOIN produce_product p2 ON p1.product_id = p2.id
+        WHERE
+            p1.deleted = 0
+          AND p2.product_line_id = #{productLineId}
+        GROUP BY
+            p1.product_id
+    </select>
+
+    <select id="getByMxCode" resultType="com.senmol.mes.workorder.vo.WorkOrderPojo">
+        SELECT
+            p.id,
+            p.status,
+            p.is_free,
+            p.product_qty,
+            p.rec_qty,
+            mx.qty,
+            mx.non_defective
+        FROM
+            work_order_mx mx
+                LEFT JOIN plan_produce p ON mx.pid = p.id
+        WHERE
+            mx.code = #{mxCode}
+          AND mx.deleted = 0
+          AND mx.status != 2
+          AND p.deleted = 0
+    </select>
+
+    <select id="getByMxId" resultType="com.senmol.mes.workorder.vo.WorkOrderPojo">
+        SELECT
+            p.id,
+            p.status,
+            p.is_free,
+            p.rec_qty,
+            p.product_id,
+            mx.qty,
+            p.status AS exist
+        FROM
+            plan_produce p
+                LEFT JOIN work_order_mx mx ON p.id = mx.pid
+        WHERE
+            p.deleted = 0
+          AND mx.deleted = 0
+          AND mx.status != 2
+          AND mx.id = #{workOrderMxId}
+    </select>
+
+    <select id="getAllTotal" resultType="java.math.BigDecimal">
+        SELECT
+            SUM( product_qty - rec_qty )
+        FROM
+            plan_produce
+        WHERE
+            exist = 1
+          AND status <![CDATA[<]]> 2
+          AND deleted = 0
+    </select>
+
+</mapper>
+

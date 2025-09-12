@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.SaleOrderProductMapper">
+
+    <update id="modifyBatchById">
+        UPDATE plan_sale_order_product
+        SET reality_qty =
+        CASE
+            product_id
+            <foreach collection="entities" item="entity">
+                WHEN #{entity.productId} THEN
+                    reality_qty + #{entity.realityQty}
+            </foreach>
+            END
+        WHERE
+            product_id IN (
+                <foreach collection="entities" item="entity" separator=",">
+                    #{entity.productId}
+                </foreach>
+            )
+        AND sale_order_id = (
+            SELECT
+                id
+            FROM
+                plan_sale_order
+            WHERE
+                code = #{saleOrderCode}
+              AND deleted = 0
+        )
+    </update>
+
+    <update id="modifyBatchById2">
+        UPDATE plan_sale_order_product
+        SET reality_qty =
+        CASE
+            product_id
+            <foreach collection="map" item="value" index="key">
+                WHEN #{key} THEN
+                    GREATEST(reality_qty - #{value}, 0)
+            </foreach>
+            END
+        WHERE
+            product_id IN (
+                <foreach collection="map" index="key" separator=",">
+                    #{key}
+                </foreach>
+            )
+        AND sale_order_id = (
+            SELECT
+                id
+            FROM
+                plan_sale_order
+            WHERE
+                code = #{saleOrderCode}
+        )
+    </update>
+
+    <select id="getSumQty" resultType="com.senmol.mes.plan.vo.ProductQty">
+        SELECT
+            sop.product_id AS goods_id,
+            SUM( IF ( sop.reality_qty - sop.qty > 0, 0, sop.qty - sop.reality_qty ) ) AS qty
+        FROM
+            plan_sale_order_product sop
+                LEFT JOIN plan_sale_order so ON sop.sale_order_id = so.id
+        WHERE
+            so.id != #{saleOrderId}
+          AND so.type = 0
+          AND so.sign <![CDATA[<]]> 2
+          AND so.status = 1
+          AND so.deleted = 0
+          AND sop.product_id IN (
+            <foreach collection="productIds" item="productId" separator=",">
+                #{productId}
+            </foreach>
+        )
+        GROUP BY
+            sop.product_id
+    </select>
+
+    <select id="getBySaleOrderCode" resultType="com.senmol.mes.plan.entity.SaleOrderProductEntity">
+        SELECT
+            sop.sale_order_id,
+            sop.product_id,
+            sop.cus_pro_code,
+            sop.qty,
+            sop.reality_qty,
+            sop.price,
+            sop.tax_rate,
+            sop.tax_price
+        FROM
+            plan_sale_order_product sop
+                LEFT JOIN plan_sale_order so ON sop.sale_order_id = so.id
+        WHERE
+            so.deleted = 0
+          AND so.code = #{orderNo}
+    </select>
+
+    <select id="countSign" resultType="java.lang.String">
+        SELECT
+            IF( sop.qty - sop.reality_qty > 0, 'a', 'b' )
+        FROM
+            plan_sale_order_product sop
+                LEFT JOIN plan_sale_order so ON sop.sale_order_id = so.id AND so.deleted = 0
+        WHERE
+            code = #{orderNo}
+    </select>
+
+</mapper>
+

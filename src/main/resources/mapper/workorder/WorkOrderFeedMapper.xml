@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.workorder.mapper.WorkOrderFeedMapper">
+
+    <select id="getByMxId" resultType="com.senmol.mes.workorder.vo.FeedInfo">
+        SELECT
+            f.id,
+            f.qr_code,
+            s.batch_no,
+            rm.qty
+        FROM
+            work_order_feed f
+                LEFT JOIN warehouse_retrieval_mx rm ON f.qr_code = rm.qr_code
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+        WHERE
+            f.mx_id = #{mxId}
+          AND f.station_id = #{stationId}
+          AND f.material_id = #{materialId}
+    </select>
+
+    <select id="getByMaterials" resultType="com.senmol.mes.workorder.entity.WorkOrderFeedEntity">
+        SELECT
+            f.qr_code,
+            f.material_id,
+            f.qty,
+            rm.used_qty,
+            s.create_time
+        FROM
+            work_order_feed f
+                LEFT JOIN warehouse_retrieval_mx rm ON f.qr_code = rm.qr_code
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+        WHERE
+            f.mx_id = #{mxId}
+          AND f.station_id = #{stationId}
+          AND f.material_id IN (
+              <foreach collection="materialIds" item="materialId" separator=",">
+                  #{materialId}
+              </foreach>
+            )
+        ORDER BY
+            s.create_time
+    </select>
+
+    <select id="retrospect" resultType="com.senmol.mes.workorder.page.Retrospect">
+        SELECT
+            om.id,
+            om.non_defective AS qty,
+            f.qr_code,
+            f.material_id,
+            f.qty AS usedQty
+        FROM
+            work_order_feed f
+	            LEFT JOIN work_order_mx om ON f.mx_id = om.id AND om.finish > 0 AND om.deleted = 0
+                LEFT JOIN plan_produce p ON om.pid = p.id AND p.deleted = 0
+        <where>
+            <if test="arg.productId != null">
+                AND p.product_id = #{arg.productId}
+            </if>
+            <if test="arg.startTime != null">
+                AND DATE( f.create_time ) >= #{arg.startTime}
+            </if>
+            <if test="arg.endTime != null">
+                AND DATE( f.create_time ) <![CDATA[<=]]> #{arg.endTime}
+            </if>
+        </where>
+        ORDER BY f.create_time DESC
+    </select>
+
+    <select id="getUseQty" resultType="com.senmol.mes.workorder.page.Retrospect">
+        SELECT
+            rm.qr_code,
+            rm.type,
+            IFNULL( po.tax_price, 0 ) AS taxPrice
+        FROM
+            warehouse_retrieval_mx rm
+                LEFT JOIN warehouse_storage s ON rm.storage_id = s.id
+                LEFT JOIN quality_storage_inspect si ON s.si_code = si.code
+                LEFT JOIN plan_purchase_order po ON si.receipt_code = po.order_no
+        WHERE
+            qr_code IN (
+                <foreach collection="qrCodes" item="qrCode" separator=",">
+                    #{qrCode}
+                </foreach>
+            )
+    </select>
+
+</mapper>
+

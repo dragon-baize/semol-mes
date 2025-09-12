@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.StationUserMapper">
+
+    <select id="getByUserId" resultType="com.senmol.mes.produce.entity.ProcessEntity">
+        SELECT
+            p.id,
+            p.title,
+            p.take_time,
+            p.serial_no
+        FROM
+            produce_station_user su
+                LEFT JOIN produce_process p ON su.station_id = p.station_id
+        WHERE
+            su.user_id = #{userId}
+        ORDER BY p.serial_no
+    </select>
+
+</mapper>

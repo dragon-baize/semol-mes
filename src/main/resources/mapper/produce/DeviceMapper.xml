@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.DeviceMapper">
+
+    <select id="getList" resultType="com.senmol.mes.produce.entity.DeviceEntity">
+        SELECT
+            d.id,
+            d.code,
+            d.title,
+            d.product_line_id,
+            d.manufacturer,
+            d.after_sales_man,
+            d.after_sales_phone,
+            d.remarks,
+            d.status,
+            d.create_time,
+            d.create_user,
+            d.update_time,
+            d.update_user
+        FROM
+            produce_device d
+        WHERE
+            d.deleted = 0
+            <if test="productLineId != null">
+                AND d.product_line_id = #{productLineId}
+          </if>
+          <if test="stationId != null">
+              AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    produce_station s
+                WHERE
+                    d.id = s.device_id
+                  AND s.id != #{stationId}
+            )
+          </if>
+    </select>
+
+</mapper>
+

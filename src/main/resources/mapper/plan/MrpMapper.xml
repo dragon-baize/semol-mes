@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.MrpMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.entity.MrpEntity">
+        SELECT
+            m.id,
+            m.sale_order_id,
+            so.code,
+            m.is_count,
+            m.create_time,
+            m.create_user,
+            m.update_time,
+            m.update_user
+        FROM
+            plan_mrp m
+                LEFT JOIN plan_sale_order so ON m.sale_order_id = so.id
+        <where>
+            m.deleted = 0
+            <if test="mrp.id != null">
+                AND m.id = #{mrp.id}
+            </if>
+            <if test="mrp.saleOrderId != null">
+                AND m.sale_order_id = #{mrp.saleOrderId}
+            </if>
+        </where>
+            ORDER BY m.create_time DESC
+    </select>
+
+    <select id="getProduceCount" resultType="java.lang.Integer">
+        SELECT
+            COUNT(*)
+        FROM
+            plan_mrp_produce mp
+                LEFT JOIN plan_produce p ON mp.produce_id = p.id
+        WHERE
+            mp.mrp_id = #{mrpId}
+          AND p.status > 0
+    </select>
+
+    <select id="getRequisitionCount" resultType="java.lang.Integer">
+        SELECT
+            COUNT(*)
+        FROM
+            plan_mrp_requisition mr
+                LEFT JOIN plan_requisition r ON mr.requisition_id = r.id
+        WHERE
+            mr.mrp_id = #{mrpId}
+          AND r.status > 0
+    </select>
+
+    <select id="getOutsourceCount" resultType="java.lang.Integer">
+        SELECT
+            COUNT(*)
+        FROM
+            plan_mrp_outsource mo
+                LEFT JOIN plan_outsource o ON mo.outsource_id = o.id
+        WHERE
+            mo.mrp_id = #{mrpId}
+          AND o.is_create > 0
+    </select>
+
+    <select id="getWorkOrderCount" resultType="com.senmol.mes.common.utils.CommonPojo">
+        SELECT
+            p.id,
+            om.status AS code
+        FROM
+            plan_mrp_produce mp
+                LEFT JOIN plan_produce p ON p.id = mp.produce_id
+                LEFT JOIN work_order_mx om ON om.pid = p.id
+        WHERE
+            mp.mrp_id = #{mrpId}
+    </select>
+
+    <delete id="delProduces">
+        DELETE
+            p
+        FROM
+            plan_produce p
+            LEFT JOIN plan_mrp_produce mp ON p.id = mp.produce_id
+        WHERE
+            mp.mrp_id = #{mrpId}
+    </delete>
+
+    <delete id="delRequisitions">
+        DELETE
+            r
+        FROM
+            plan_requisition r
+            LEFT JOIN plan_mrp_requisition mr ON r.id = mr.requisition_id
+        WHERE
+            mr.mrp_id = #{mrpId}
+    </delete>
+
+    <delete id="delOutsource">
+        DELETE
+            o
+        FROM
+            plan_outsource o
+                LEFT JOIN plan_mrp_outsource mo ON o.id = mo.outsource_id
+        WHERE
+            mo.mrp_id = #{mrpId}
+    </delete>
+
+    <delete id="delWorkOrderMaterial">
+        DELETE
+            wom
+        FROM
+            work_order_material wom
+                LEFT JOIN work_order_mx om ON wom.mx_id = om.id
+        WHERE
+            om.pid IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+    </delete>
+
+    <delete id="delWorkOrderMxMaterial">
+        DELETE
+            omm
+        FROM
+            work_order_mx_material omm
+            LEFT JOIN work_order_mx om ON omm.mx_id = om.id
+        WHERE
+            om.pid IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+    </delete>
+
+    <delete id="delWorkOrderMx">
+        DELETE
+        FROM
+            work_order_mx
+        WHERE
+            pid IN (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+    </delete>
+
+    <select id="unSaleOrder" resultType="com.senmol.mes.plan.vo.MaterialVo">
+        SELECT
+            om.material_id,
+            SUM( om.qty ) AS qty,
+            om.type
+        FROM
+            plan_sale_order so
+                LEFT JOIN plan_produce p ON so.code = p.order_no
+                LEFT JOIN work_order_mx mx ON p.id = mx.pid
+                LEFT JOIN work_order_material om ON om.mx_id = mx.id
+        WHERE
+            so.type = 0
+          AND so.deleted = 0
+          AND p.deleted = 0
+          AND om.material_id IS NOT NULL
+          AND so.status <![CDATA[<]]> 2
+        GROUP BY
+            om.material_id,
+            om.type
+    </select>
+
+    <select id="getByProductIds" resultType="com.senmol.mes.plan.vo.MaterialVo">
+        SELECT
+            bm.material_id,
+            SUM( bm.qty ) AS qty,
+            bm.type
+        FROM
+            produce_bom b
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+        WHERE
+            b.deleted = 0
+          AND b.product_id IN (
+              <foreach collection="map" index="key" separator=",">
+                  #{key}
+              </foreach>
+            )
+        GROUP BY
+            bm.material_id,
+            bm.type
+    </select>
+
+    <select id="unWorkOrder" resultType="com.senmol.mes.plan.vo.MaterialVo">
+        SELECT
+            bm.material_id,
+            SUM( bm.qty ) AS qty,
+            bm.type
+        FROM
+            work_order_mx om
+                LEFT JOIN plan_produce p ON p.id = om.pid
+                LEFT JOIN produce_bom b ON p.product_id = b.product_id
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+        WHERE
+            om.status = 1
+          AND om.finish = 0
+        GROUP BY
+            bm.material_id,
+            bm.type
+    </select>
+
+    <select id="materialQty" resultType="com.senmol.mes.plan.vo.MaterialVo">
+        SELECT
+            bm.material_id,
+            SUM( bm.qty ) AS qty,
+            bm.type
+        FROM
+            produce_bom b
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+        WHERE
+            b.deleted = 0
+          AND b.product_id = #{productId}
+        GROUP BY
+            bm.material_id,
+            bm.type
+    </select>
+
+</mapper>
+

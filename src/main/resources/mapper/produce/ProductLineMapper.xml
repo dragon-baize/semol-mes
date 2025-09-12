@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.ProductLineMapper">
+
+    <select id="getByUserId" resultType="com.senmol.mes.produce.entity.ProductLineEntity">
+        SELECT
+            DISTINCT pl.id,
+            pl.title,
+            pl.code,
+            pl.status
+        FROM
+            produce_product_line pl
+                LEFT JOIN produce_station pls ON pl.id = pls.product_line_id
+                LEFT JOIN produce_station_user su ON pls.id = su.station_id
+        WHERE
+            pl.deleted = 0
+          AND pls.deleted = 0
+            <if test="userId != null">
+                AND su.user_id = #{userId}
+            </if>
+    </select>
+
+    <select id="getAllTotal" resultType="java.math.BigDecimal">
+        SELECT
+            IFNULL( SUM( total ), 0 )
+        FROM
+            produce_product_line
+        WHERE
+            deleted = 0
+    </select>
+
+    <select id="processStatus" resultType="com.senmol.mes.produce.vo.WorkOrderMxProcessVo">
+        SELECT
+            o.id AS plan_id,
+            o.product_id,
+            o.product_qty AS qty,
+            om.code,
+            omp.station_id,
+            omp.process_id,
+            omp.serial_no AS processCode,
+            omp.device_id,
+            omp.non_defective,
+            omp.defective,
+            omp.begin_time,
+            omp.end_time,
+            omp.yield,
+            omp.status
+        FROM
+            produce_product p
+            LEFT JOIN plan_produce o ON p.id = o.product_id
+                LEFT JOIN work_order_mx om ON o.id = om.pid
+                LEFT JOIN work_order_mx_process omp ON om.id = omp.mx_id
+        WHERE
+            o.deleted = 0
+          AND o.status = 0
+          AND p.product_line_id = #{productLineId}
+          AND om.deleted = 0
+          AND om.status = 1
+          AND omp.station_id IS NOT NULL
+        ORDER BY
+            omp.mx_id DESC,
+            omp.serial_no
+    </select>
+
+</mapper>
+

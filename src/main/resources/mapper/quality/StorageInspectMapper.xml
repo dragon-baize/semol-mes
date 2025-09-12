@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.quality.mapper.StorageInspectMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.quality.vo.StorageInspectVo">
+        SELECT
+            si.id,
+            si.code,
+            si.pid,
+            si.receipt_code,
+            si.batch_no,
+            si.detection_way,
+            si.goods_id,
+            <if test="se.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            si.type,
+            si.censorship_qty,
+            si.inspect_qty,
+            si.qualified_qty,
+            si.unqualified_qty,
+            si.disposal,
+            si.status,
+            si.source,
+            si.tester,
+            si.test_result,
+            si.create_time,
+            si.create_user,
+            si.update_time,
+            si.update_user
+        FROM
+            quality_storage_inspect si
+            <if test="se.type == 0 or se.type == 1">
+                LEFT JOIN produce_product g ON g.id = si.goods_id
+            </if>
+            <if test="se.type == 2 or se.type == 3">
+                LEFT JOIN produce_material g ON g.id = si.goods_id
+            </if>
+        <where>
+            si.deleted = 0
+            <if test="se.productMode != null">
+                AND g.product_mode = #{se.productMode}
+            </if>
+            <if test="se.id != null">
+                AND si.id = #{se.id}
+            </if>
+            <if test="se.code != null and se.code != ''">
+                AND si.code = #{se.code}
+            </if>
+            <if test="se.receiptCode != null and se.receiptCode != ''">
+                AND si.receipt_code LIKE CONCAT ('%', #{se.receiptCode}, '%')
+            </if>
+            <if test="se.batchNo != null and se.batchNo != ''">
+                AND si.batch_no LIKE CONCAT ('%', #{se.batchNo}, '%')
+            </if>
+            <if test="se.detectionWay != null">
+                AND si.detection_way = #{se.detectionWay}
+            </if>
+            <if test="se.goodsId != null">
+                AND si.goods_id = #{se.goodsId}
+            </if>
+            <if test="se.type != null and se.goodsCode != null and se.goodsCode != ''">
+                AND g.code LIKE CONCAT('%', #{se.goodsCode}, '%')
+            </if>
+            <if test="se.type != null">
+                AND si.type = #{se.type}
+            </if>
+            <if test="se.disposal != null">
+                AND si.disposal = #{se.disposal}
+            </if>
+            <if test="se.tester != null">
+                AND si.tester = #{se.tester}
+            </if>
+            <if test="se.status != null">
+                AND si.status = #{se.status}
+            </if>
+            <if test="se.source != null">
+                AND si.source = #{se.source}
+            </if>
+        </where>
+        ORDER BY si.update_time DESC
+    </select>
+
+</mapper>
+

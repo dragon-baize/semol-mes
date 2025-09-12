@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.project.mapper.NapeFileMapper">
+
+    <select id="getByUserId" resultType="com.senmol.mes.project.vo.NapeFileVo">
+        SELECT
+            sn.belong AS napeBelong,
+            sn.title AS napeTitle,
+            nf.id,
+            nf.nape_id,
+            nf.manage_id,
+            nf.original_title,
+            nf.reality_title,
+            nf.file_path,
+            nf.type,
+            nf.approve_result,
+            nf.revision,
+            nf.remarks,
+            nf.create_time,
+            nf.create_user
+        FROM
+            project_file_user fu
+            LEFT JOIN project_nape_file nf ON fu.file_id = nf.id
+            AND nf.deleted = 0
+            LEFT JOIN project_stage_nape sn ON nf.nape_id = sn.id
+            AND sn.deleted = 0
+        WHERE
+            fu.user_id = #{userId}
+        <if test="file.id != null">
+            AND nf.id = #{file.id}
+        </if>
+        <if test="file.napeId != null">
+            AND nf.nape_id = #{file.napeId}
+        </if>
+        <if test="file.manageId != null">
+            AND nf.manage_id = #{file.manageId}
+        </if>
+        <if test="file.originalTitle != null and file.originalTitle != ''">
+            AND nf.original_title LIKE CONCAT('%', #{file.originalTitle}, '%')
+        </if>
+        <if test="file.type != null">
+            AND nf.type = #{file.type}
+        </if>
+        <if test="file.approveResult != null">
+            AND nf.approve_result = #{file.approveResult}
+        </if>
+        <if test="file.createUser != null">
+            AND nf.create_user = #{file.createUser}
+        </if>
+        <if test="file.updateUser != null">
+            AND nf.update_user = #{file.updateUser}
+        </if>
+    </select>
+
+    <select id="getOneById" resultType="com.senmol.mes.project.vo.NapeFileInfo">
+        SELECT
+            nf.manage_id,
+            m.title AS manageTitle,
+            sn.belong AS napeBelong,
+            nf.nape_id,
+            sn.title AS napeTitle,
+            nf.create_time,
+            nf.create_user,
+            GROUP_CONCAT( fu.user_id, '_', fu.is_approve, '_', IFNULL(fu.remarks, '') ) AS userApprove
+        FROM
+            project_nape_file nf
+            LEFT JOIN project_file_user fu ON nf.id = fu.file_id
+            LEFT JOIN project_stage_nape sn ON nf.nape_id = sn.id
+            LEFT JOIN project_manage m ON nf.manage_id = m.id
+        WHERE
+            nf.deleted = 0
+        AND sn.deleted = 0
+        AND m.deleted = 0
+        AND nf.id = #{id}
+    </select>
+
+</mapper>
+

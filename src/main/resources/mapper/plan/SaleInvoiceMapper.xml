@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.SaleInvoiceMapper">
+
+    <sql id="condition">
+        FROM
+            plan_sale_invoice si
+                LEFT JOIN plan_sale_invoice_mx sim ON si.id = sim.invoice_id
+                LEFT JOIN plan_sale_order so ON sim.pid = so.id AND so.deleted = 0
+        WHERE
+            si.deleted = 0
+        <if test="vo.id != null">
+            AND si.id = #{vo.id}
+        </if>
+        <if test="vo.goodsId != null">
+            AND sim.goods_id = #{vo.goodsId}
+        </if>
+        <if test="vo.agent != null">
+            AND si.agent = #{vo.agent}
+        </if>
+    </sql>
+
+    <sql id="pageTime">
+        <if test="page.startTime != null">
+            AND DATE(si.create_time) >= #{page.startTime}
+        </if>
+        <if test="page.endTime != null">
+            AND DATE(si.create_time) <![CDATA[<=]]> #{page.endTime}
+        </if>
+        GROUP BY si.id
+        ORDER BY si.create_time DESC
+    </sql>
+
+    <sql id="timeInterval">
+        <if test="startTime != null">
+            AND DATE(si.create_time) >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND DATE(si.create_time) <![CDATA[<=]]> #{endTime}
+        </if>
+    </sql>
+
+    <select id="getOne" resultType="com.senmol.mes.plan.vo.SaleInvoicePojo">
+        SELECT
+            o.id,
+            1 AS flag,
+            om.goods_id,
+            om.type,
+            om.qty,
+            om.price,
+            om.tax_price
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+                AND o.deleted = 0
+        WHERE
+            o.invoice = #{id}
+        UNION ALL
+        SELECT
+            sr.id,
+            sr.return_type + 1 AS flag,
+            sr.goods_id,
+            sr.type,
+            sr.unqualified_qty,
+            sr.price,
+            sr.amount / sr.unqualified_qty AS tax_price
+        FROM
+            quality_storage_reserva sr
+        WHERE
+            sr.deleted = 0
+          AND sr.type = 0
+          AND sr.invoice = #{id}
+    </select>
+
+    <select id="selectAll" resultType="com.senmol.mes.plan.vo.SaleInvoiceVo">
+        SELECT
+            si.id,
+            GROUP_CONCAT( so.code ) AS saleCodes,
+            si.agent,
+            si.register_time,
+            si.code,
+            si.digest,
+            GROUP_CONCAT( sim.goods_id ) AS goodsIds,
+            GROUP_CONCAT( sim.type ) AS type,
+            SUM( sim.qty ) AS qty,
+            GROUP_CONCAT( sim.tax_price ) AS taxPrice,
+            SUM( sim.total ) AS total,
+            si.create_user
+        <include refid="condition"/>
+        <include refid="pageTime"/>
+    </select>
+
+    <select id="selectTotal" resultType="com.senmol.mes.plan.vo.SaleInvoiceTotal">
+        SELECT
+            SUM( sim.qty ) AS qty,
+            SUM( sim.total ) AS total
+        <include refid="condition"/>
+        <include refid="timeInterval"/>
+    </select>
+
+    <select id="check" resultType="java.lang.Long">
+        SELECT
+            COUNT(*)
+        FROM
+            view_delivery_returns
+        WHERE
+            mark = 1
+          AND id IN (
+              <foreach collection="mxs" item="mx" separator=",">
+                  #{mx.pid}
+              </foreach>
+            )
+    </select>
+
+</mapper>
+

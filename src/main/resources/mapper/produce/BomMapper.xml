@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.BomMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.produce.entity.BomEntity">
+        SELECT
+            b.id,
+            b.product_id,
+            p.code AS product_code,
+            p.title AS product_title,
+            b.product_type,
+            b.product_line_id,
+            b.workmanship_id,
+            b.wms_version,
+            b.status,
+            b.remarks,
+            b.create_time,
+            b.create_user,
+            b.update_user,
+            b.update_time,
+            b.version,
+            b.version_remarks
+        FROM
+            produce_bom b
+            LEFT JOIN produce_product p ON b.product_id = p.id
+        WHERE
+            b.deleted = 0
+          AND p.deleted = 0
+        <if test="bom.id != null">
+            AND b.id = #{bom.id}
+        </if>
+        <if test="bom.productId != null">
+            AND b.product_id = #{bom.productId}
+        </if>
+        <if test="bom.productCode != null and bom.productCode != ''">
+            AND p.code LIKE CONCAT('%', #{bom.productCode}, '%')
+        </if>
+        <if test="bom.productLineId != null">
+            AND b.product_line_id = #{bom.productLineId}
+        </if>
+        <if test="bom.workmanshipId != null">
+            AND b.workmanship_id = #{bom.workmanshipId}
+        </if>
+        ORDER BY b.create_time DESC
+    </select>
+
+    <select id="unboundBomProduct" resultType="java.lang.String">
+        SELECT
+            p.code
+        FROM
+            produce_product p
+        WHERE
+            p.deleted = 0
+          AND p.id IN (
+              <foreach collection="productIds" item="productId" separator=",">
+                  #{productId}
+              </foreach>
+            )
+          AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    produce_bom b
+                WHERE
+                    p.id = b.product_id
+                  AND b.deleted = 0
+            )
+    </select>
+
+    <select id="getProductId" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            b.product_id AS aId,
+            SUM( bm.qty ) AS qty
+        FROM
+            produce_bom b
+                LEFT JOIN produce_bom_material bm ON b.id = bm.bom_id
+        WHERE
+            b.deleted = 0
+          AND bm.material_id = #{materialId}
+        GROUP BY
+            b.product_id
+    </select>
+
+</mapper>
+

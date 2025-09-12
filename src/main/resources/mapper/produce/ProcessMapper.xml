@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.produce.mapper.ProcessMapper">
+
+    <select id="getListByWorkmanshipId" resultType="com.senmol.mes.produce.entity.ProcessEntity">
+        SELECT
+            p.id,
+            p.title,
+            p.take_time,
+            p.serial_no,
+            p.wms_version,
+            s.id AS stationId,
+            s.title AS stationTitle,
+            d.id AS deviceId,
+            d.title AS deviceTitle
+        FROM
+            produce_process p
+                LEFT JOIN produce_station s ON p.station_id = s.id
+                LEFT JOIN produce_device d ON s.device_id = d.id
+        WHERE
+            p.workmanship_id = #{workmanshipId}
+          AND p.wms_version = #{wmsVersion}
+        ORDER BY p.serial_no
+    </select>
+
+    <select id="byProductId" resultType="com.senmol.mes.produce.entity.ProcessEntity">
+        SELECT
+            p.id,
+            p.title,
+            p.take_time,
+            p.serial_no,
+            p.create_time,
+            p.create_user
+        FROM
+            produce_bom b
+                LEFT JOIN produce_process p ON p.workmanship_id = b.workmanship_id AND b.wms_version = p.wms_version
+        WHERE
+            b.product_id = #{productId}
+          AND b.deleted = 0
+        ORDER BY
+            p.serial_no ASC,
+            p.create_time DESC
+    </select>
+
+</mapper>
+

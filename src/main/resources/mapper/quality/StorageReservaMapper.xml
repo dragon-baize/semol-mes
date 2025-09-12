@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.quality.mapper.StorageReservaMapper">
+
+    <select id="selectAll" resultType="com.senmol.mes.quality.vo.StorageReservaVo">
+        SELECT
+            r.id,
+            r.code,
+            r.pid,
+            r.receipt_code,
+            r.batch_no,
+            r.detection_way,
+            r.goods_id,
+            <if test="sr.type != null">
+                g.code AS goodsCode,
+                g.title AS goodsTitle,
+                g.unit_id,
+            </if>
+            r.type,
+            r.censorship_qty,
+            r.inspect_qty,
+            r.qualified_qty,
+            r.unqualified_qty,
+            r.disposal,
+            r.status,
+            r.source,
+            r.tester,
+            r.test_result,
+            r.custom_id,
+            r.amount,
+            r.return_type,
+            r.price,
+            r.create_time,
+            r.create_user,
+            r.update_time,
+            r.update_user
+        FROM
+            quality_storage_reserva r
+            <if test="sr.type == 0 or sr.type == 1">
+                LEFT JOIN produce_product g ON g.id = r.goods_id
+            </if>
+            <if test="sr.type == 2 or sr.type == 3">
+                LEFT JOIN produce_material g ON g.id = r.goods_id
+            </if>
+        WHERE
+            r.deleted = 0
+        <if test="sr.productMode != null">
+            AND g.product_mode = #{sr.productMode}
+        </if>
+        <if test="sr.id != null">
+            AND r.id = #{sr.id}
+        </if>
+        <if test="sr.code != null and sr.code != ''">
+            AND r.code = #{sr.code}
+        </if>
+        <if test="sr.receiptCode != null and sr.receiptCode != ''">
+            AND r.receipt_code = #{sr.receiptCode}
+        </if>
+        <if test="sr.batchNo != null and sr.batchNo != ''">
+            AND r.batch_no = #{sr.batchNo}
+        </if>
+        <if test="sr.detectionWay != null">
+            AND r.detection_way = #{sr.detectionWay}
+        </if>
+        <if test="sr.goodsId != null">
+            AND r.goods_id = #{sr.goodsId}
+        </if>
+        <if test="sr.type != null and sr.goodsCode != null and sr.goodsCode != ''">
+            AND g.code LIKE CONCAT('%', #{sr.goodsCode}, '%')
+        </if>
+        <if test="sr.type != null">
+            AND r.type = #{sr.type}
+        </if>
+        <if test="sr.disposal != null">
+            AND r.disposal = #{sr.disposal}
+        </if>
+        <if test="sr.status != null">
+            AND r.status = #{sr.status}
+        </if>
+        <if test="sr.source != null">
+            AND r.source = #{sr.source}
+        </if>
+        <if test="sr.tester != null">
+            AND r.tester = #{sr.tester}
+        </if>
+        <if test="sr.returnType != null">
+            AND r.return_type = #{sr.returnType}
+        </if>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <insert id="saveReservaBatch">
+        INSERT INTO quality_storage_reserva(id, code, pid, receipt_code, detection_way, goods_id, type, unqualified_qty, disposal, source, tester, create_time, create_user, update_time, update_user)
+        VALUES
+        <foreach collection="entities" item="entity" separator=",">
+            (#{entity.id}, #{entity.code}, #{entity.pid}, #{entity.receiptCode}, #{entity.detectionWay}, #{entity.goodsId}, #{entity.type}, #{entity.unqualifiedQty}, #{entity.disposal}, #{entity.source}, #{entity.tester}, #{entity.createTime}, #{entity.tester}, #{entity.createTime}, #{entity.tester})
+        </foreach>
+    </insert>
+
+</mapper>
+

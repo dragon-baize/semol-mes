@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.system.mapper.MenuMapper">
+
+    <select id="getByIds" resultType="com.senmol.mes.system.entity.MenuEntity">
+        WITH recursive temp AS (
+            SELECT
+                m.id,
+                m.pid,
+                m.path,
+                m.name,
+                m.title,
+                m.icon,
+                m.sort
+            FROM
+                sys_menu m
+            WHERE
+                m.deleted = 0
+            AND m.disabled = 0
+            AND m.id IN (
+                <foreach collection="menuIds" item="menuId" separator=",">
+                    #{menuId}
+                </foreach>
+            ) UNION ALL
+            SELECT
+                sm.id,
+                sm.pid,
+                sm.path,
+                sm.name,
+                sm.title,
+                sm.icon,
+                sm.sort
+            FROM
+                sys_menu sm
+                INNER JOIN temp t ON sm.id = t.pid
+            WHERE
+                sm.deleted = 0
+            AND sm.disabled = 0
+        )
+        SELECT DISTINCTROW
+            p.id,
+            p.pid,
+            p.path,
+            p.name,
+            p.title,
+            p.icon,
+            p.sort
+        FROM
+            temp p
+        ORDER BY
+            p.pid,
+            p.sort
+    </select>
+
+    <select id="getByUserIds" resultType="com.senmol.mes.common.utils.CommonPojo">
+        SELECT
+            ur.user_id AS id,
+            m.id AS code
+        FROM
+            sys_user_role ur
+                LEFT JOIN sys_role r ON ur.role_id = r.id
+                LEFT JOIN sys_role_menu rm ON r.id = rm.role_id
+                LEFT JOIN sys_menu m ON rm.menu_id = m.id
+        WHERE
+            ur.user_id IN (
+                <foreach collection="userIds" item="userId" separator=",">
+                    #{userId}
+                </foreach>
+                )
+          AND r.status = 1
+          AND m.disabled = 0
+    </select>
+
+    <select id="getUserMenuIds" resultType="java.lang.Long">
+        SELECT
+            DISTINCT m.id
+        FROM
+            sys_menu m
+                LEFT JOIN sys_role_menu rm ON m.id = rm.menu_id
+                LEFT JOIN sys_role r ON rm.role_id = r.id
+                LEFT JOIN sys_user_role ur ON r.id = ur.role_id
+        WHERE
+            m.disabled = 0
+          AND r.status = 1
+          AND ur.user_id = #{userId}
+    </select>
+
+</mapper>
+

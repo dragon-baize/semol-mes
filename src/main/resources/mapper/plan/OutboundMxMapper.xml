@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.plan.mapper.OutboundMxMapper">
+
+    <select id="getCkQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            om.goods_id AS aId,
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound_mx om
+                LEFT JOIN plan_outbound o ON o.id = om.outbound_id
+        WHERE
+            o.type = #{sign}
+            <if test="type != null">
+                AND om.type = #{type}
+            </if>
+          AND o.deleted = 0
+          AND o.status > 1
+          AND o.order_no IN (
+              <foreach collection="codes" item="code" separator=",">
+                  #{code}
+              </foreach>
+            )
+          <if test="ids != null and ids.size() > 0">
+              AND om.goods_id IN (
+                  <foreach collection="ids" item="id" separator=",">
+                      #{id}
+                  </foreach>
+                )
+          </if>
+        GROUP BY
+            om.goods_id
+    </select>
+
+    <select id="getSckQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            <if test="type == 0">
+                mx.pid AS aId,
+            </if>
+            <if test="type == 1">
+                o.order_no AS aStr,
+            </if>
+            SUM( om.qty ) AS qty
+        FROM
+            plan_outbound o
+                LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
+                <if test="type == 0">
+                    LEFT JOIN work_order_mx mx ON o.order_no = mx.code AND mx.deleted = 0 AND mx.status != 2
+                </if>
+        WHERE
+            o.type = #{type}
+          AND o.deleted = 0
+          AND o.status > 1
+          AND o.order_no IN (
+              <foreach collection="codes" item="code" separator=",">
+                  #{code}
+              </foreach>
+            )
+          AND om.goods_id = #{materialId}
+        <if test="type == 0">
+            GROUP BY
+                mx.pid
+        </if>
+    </select>
+
+    <select id="getByCode" resultType="com.senmol.mes.plan.entity.OutboundMxEntity">
+        SELECT
+            mx.outbound_id,
+            mx.storage_id,
+            mx.goods_id,
+            mx.type,
+            mx.qty,
+            IFNULL(mx.act_qty, 0) AS actQty,
+            mx.price,
+            mx.tax_rate,
+            mx.tax_price
+        FROM
+            plan_outbound_mx mx
+                LEFT JOIN plan_outbound o ON mx.outbound_id = o.id
+        WHERE
+            o.code = #{code}
+          AND o.deleted = 0
+          AND o.status = 2
+          AND mx.qty > 0
+          AND mx.type <![CDATA[<]]> 2
+    </select>
+
+    <select id="getNotShip" resultType="java.lang.Long">
+        SELECT
+            goods_id
+        FROM
+            plan_outbound_mx
+        WHERE
+            outbound_id = #{outboundId}
+          AND qty > IFNULL(act_qty, 0)
+    </select>
+
+    <update id="modifyBatch">
+        UPDATE plan_outbound_mx
+        SET act_qty =
+            CASE
+                goods_id
+                <foreach collection="mxVos" item="mxVo">
+                WHEN #{mxVo.bId} THEN
+                    #{mxVo.qty}
+                </foreach>
+            END
+        WHERE
+            outbound_id IN (
+            <foreach collection="mxVos" item="mxVo" separator=",">
+                #{mxVo.aId}
+            </foreach>
+        )
+          AND goods_id IN (
+            <foreach collection="mxVos" item="mxVo" separator=",">
+                #{mxVo.bId}
+            </foreach>
+        )
+    </update>
+
+</mapper>
+

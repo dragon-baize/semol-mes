@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.senmol.mes.system.mapper.RoleMapper">
+
+    <select id="isAdmin" resultType="int">
+        SELECT
+            count( r.id )
+        FROM
+            sys_role r
+                LEFT JOIN sys_user_role ur ON r.id = ur.role_id
+        WHERE
+            r.deleted = 0
+          AND ur.user_id = #{userId}
+          AND r.code = 'admin'
+    </select>
+
+</mapper>
+
