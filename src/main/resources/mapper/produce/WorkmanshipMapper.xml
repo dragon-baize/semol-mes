@@ -6,16 +6,14 @@
         SELECT
             w.id,
             w.title,
-            GROUP_CONCAT( mx.wms_version ) AS wmsVersions
+            w.version
         FROM
             produce_workmanship_mx mx
-                LEFT JOIN produce_workmanship w ON w.id = mx.pid
+                LEFT JOIN produce_workmanship w ON w.id = mx.pid AND mx.wms_version = w.version
         WHERE
             w.deleted = 0
           AND mx.status = 0
           AND mx.product_line_id = #{productLineId}
-        GROUP BY
-            mx.pid
     </select>
 
     <select id="getVoById" resultType="com.senmol.mes.produce.vo.WorkmanshipVo">

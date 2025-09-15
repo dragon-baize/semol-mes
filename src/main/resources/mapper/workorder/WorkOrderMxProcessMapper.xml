@@ -10,7 +10,7 @@
                 LEFT JOIN work_order_mx om ON mp.mx_id = om.id
         WHERE
             om.pid = #{id}
-          AND om.status != 2
+          AND om.status = 1
           AND mp.status > 0
     </select>
 

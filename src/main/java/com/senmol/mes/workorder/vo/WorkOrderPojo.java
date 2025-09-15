@@ -16,6 +16,10 @@ public class WorkOrderPojo implements Serializable {
      */
     private Long id;
     /**
+     * 备货订单编号
+     */
+    private String orderNo;
+    /**
      * 状态 0-未完成 1-完成
      */
     private Integer status;

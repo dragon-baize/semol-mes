@@ -45,7 +45,7 @@
             plan_outbound o
                 LEFT JOIN plan_outbound_mx om ON o.id = om.outbound_id
                 <if test="type == 0">
-                    LEFT JOIN work_order_mx mx ON o.order_no = mx.code AND mx.deleted = 0 AND mx.status != 2
+                    LEFT JOIN work_order_mx mx ON o.order_no = mx.code AND mx.deleted = 0 AND mx.status <![CDATA[<]]> 2
                 </if>
         WHERE
             o.type = #{type}

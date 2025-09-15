@@ -88,7 +88,7 @@
                 LEFT JOIN plan_outbound_mx obm ON ob.id = obm.outbound_id
         WHERE
             (ob.status <![CDATA[<]]> 2  OR ob.status is NULL)
-          AND om.status != 2
+          AND om.status <![CDATA[<]]> 2
           AND mp.mrp_id IN (
                 <foreach collection="mrpIds" item="mrpId" separator=",">
                     #{mrpId}

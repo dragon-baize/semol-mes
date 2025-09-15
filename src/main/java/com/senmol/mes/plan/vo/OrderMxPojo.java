@@ -17,6 +17,10 @@ public class OrderMxPojo implements Serializable {
      */
     private Integer mark;
     /**
+     * 销售订单ID
+     */
+    private Long orderId;
+    /**
      * 客户ID
      */
     private Long customId;

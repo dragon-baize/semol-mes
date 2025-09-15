@@ -298,7 +298,7 @@
                 LEFT JOIN plan_produce o ON om.pid = o.id
         WHERE
             om.finish = 0
-          AND om.status != 2
+          AND om.status = 1
           AND om.deleted = 0
           AND o.status = 0
           AND o.deleted = 0

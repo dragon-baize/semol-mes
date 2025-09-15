@@ -5,6 +5,9 @@
     <sql id="condition">
         WHERE
             so.deleted = 0
+        <if test="pojo.orderId != null">
+            AND so.id = #{pojo.orderId}
+        </if>
         <if test="pojo.customId != null">
             AND so.custom_id = #{pojo.customId}
         </if>

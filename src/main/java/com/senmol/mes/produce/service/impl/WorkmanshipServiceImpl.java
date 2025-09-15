@@ -27,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -55,13 +54,7 @@ public class WorkmanshipServiceImpl extends ServiceImpl<WorkmanshipMapper, Workm
 
     @Override
     public List<WorkmanshipPojo> getUnboundList(Long productLineId) {
-        List<WorkmanshipPojo> list = this.baseMapper.getUnboundList(productLineId);
-        list.forEach(item -> {
-            String[] split = item.getWmsVersions().split(",");
-            item.setWmsVersions(Arrays.toString(split));
-        });
-
-        return list;
+        return this.baseMapper.getUnboundList(productLineId);
     }
 
     @Override

@@ -55,10 +55,6 @@ public class WorkmanshipPojo implements Serializable {
      */
     private Integer wmsVersion;
     /**
-     * 工艺版本号列表
-     */
-    private String wmsVersions;
-    /**
      * 创建时间
      */
     private LocalDateTime createTime;

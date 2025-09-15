@@ -204,6 +204,7 @@
     <select id="getByMxCode" resultType="com.senmol.mes.workorder.vo.WorkOrderPojo">
         SELECT
             p.id,
+            p.order_no,
             p.status,
             p.is_free,
             p.product_qty,
@@ -212,12 +213,11 @@
             mx.non_defective
         FROM
             work_order_mx mx
-                LEFT JOIN plan_produce p ON mx.pid = p.id
+                LEFT JOIN plan_produce p ON mx.pid = p.id AND p.deleted = 0
         WHERE
             mx.code = #{mxCode}
           AND mx.deleted = 0
-          AND mx.status != 2
-          AND p.deleted = 0
+          AND mx.status <![CDATA[<]]> 2
     </select>
 
     <select id="getByMxId" resultType="com.senmol.mes.workorder.vo.WorkOrderPojo">
@@ -235,7 +235,7 @@
         WHERE
             p.deleted = 0
           AND mx.deleted = 0
-          AND mx.status != 2
+          AND mx.status <![CDATA[<]]> 2
           AND mx.id = #{workOrderMxId}
     </select>
 

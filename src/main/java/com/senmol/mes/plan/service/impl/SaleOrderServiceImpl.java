@@ -173,7 +173,7 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
     @Override
     public SaResult updateSaleOrder(SaleOrderEntity saleOrder) {
         List<SaleOrderProductEntity> products = saleOrder.getProducts();
-        if (CollUtil.isNotEmpty(products)) {
+        if (CollUtil.isNotEmpty(products) && saleOrder.getStatus() != 2) {
             this.saleOrderProductService.lambdaUpdate().eq(SaleOrderProductEntity::getSaleOrderId, saleOrder.getId()).remove();
             products.forEach(item -> item.setSaleOrderId(saleOrder.getId()));
             this.saleOrderProductService.saveBatch(products);
