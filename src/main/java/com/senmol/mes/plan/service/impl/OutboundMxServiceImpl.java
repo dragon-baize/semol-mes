@@ -40,6 +40,11 @@ public class OutboundMxServiceImpl extends ServiceImpl<OutboundMxMapper, Outboun
     }
 
     @Override
+    public List<CountVo> getUnshipQty(List<Long> productIds) {
+        return this.baseMapper.getUnshipQty(productIds);
+    }
+
+    @Override
     public void modifyBatch(List<CountVo> mxVos) {
         this.baseMapper.modifyBatch(mxVos);
     }

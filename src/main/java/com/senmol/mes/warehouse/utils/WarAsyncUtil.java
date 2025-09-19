@@ -96,6 +96,8 @@ public class WarAsyncUtil {
     private ProFromRedis proFromRedis;
     @Resource
     private StorageReservaService storageReservaService;
+    @Resource
+    private SaleOrderService saleOrderService;
 
     /**
      * 获取库位缓存
@@ -175,33 +177,24 @@ public class WarAsyncUtil {
 
         LocalDateTime updateTime = storage.getCreateTime();
         Long updateUser = storage.getCreateUser();
-        int i = workOrder.getRecQty().compareTo(workOrder.getProductQty());
         BigDecimal add = workOrder.getRecQty().add(storage.getQty());
-        if (i < 0) {
-            i = add.compareTo(workOrder.getProductQty());
-            if (i >= 0) {
-                workOrder.setStatus(1);
-            }
-        }
+        int i = add.compareTo(workOrder.getProductQty());
 
-        if (workOrder.getStatus() == 1) {
+        if (i >= 0) {
             // 设置计划的实际完成时间
-            this.produceService.lambdaUpdate()
-                    .set(ProduceEntity::getRealityFinishTime, LocalDateTime.now())
-                    .set(ProduceEntity::getRecQty, add)
-                    .set(ProduceEntity::getStatus, 2)
-                    .set(ProduceEntity::getUpdateTime, updateTime)
-                    .set(ProduceEntity::getUpdateUser, updateUser)
-                    .eq(ProduceEntity::getId, workOrder.getId())
-                    .update();
+            this.produceService.lambdaUpdate().set(ProduceEntity::getRealityFinishTime, LocalDateTime.now())
+                    .set(ProduceEntity::getRecQty, add).set(ProduceEntity::getStatus, 2)
+                    .set(ProduceEntity::getUpdateTime, updateTime).set(ProduceEntity::getUpdateUser, updateUser)
+                    .eq(ProduceEntity::getId, workOrder.getId()).update();
+
+            // 设置备货订单为完成
+            this.saleOrderService.lambdaUpdate().set(SaleOrderEntity::getStatus, 2)
+                    .eq(SaleOrderEntity::getCode, workOrder.getOrderNo()).eq(SaleOrderEntity::getType, 1).update();
         } else {
             // 设置计划的入库数量
-            this.produceService.lambdaUpdate()
-                    .set(ProduceEntity::getRecQty, add)
-                    .set(ProduceEntity::getUpdateTime, updateTime)
-                    .set(ProduceEntity::getUpdateUser, updateUser)
-                    .eq(ProduceEntity::getId, workOrder.getId())
-                    .update();
+            this.produceService.lambdaUpdate().set(ProduceEntity::getRecQty, add)
+                    .set(ProduceEntity::getUpdateTime, updateTime).set(ProduceEntity::getUpdateUser, updateUser)
+                    .eq(ProduceEntity::getId, workOrder.getId()).update();
         }
 
         BomVo bom = this.proFromRedis.getBom(storage.getGoodsId());
@@ -220,16 +213,11 @@ public class WarAsyncUtil {
             }
         }
 
-        this.productLineService.lambdaUpdate()
-                .set(ProductLineEntity::getTotal, subtract)
-                .set(ProductLineEntity::getRate, rate)
-                .eq(ProductLineEntity::getId, productLine.getId())
-                .update();
+        this.productLineService.lambdaUpdate().set(ProductLineEntity::getTotal, subtract)
+                .set(ProductLineEntity::getRate, rate).eq(ProductLineEntity::getId, productLine.getId()).update();
 
-        this.workOrderMxService.lambdaUpdate()
-                .set(WorkOrderMxEntity::getFinish, 2)
-                .eq(WorkOrderMxEntity::getCode, storage.getBatchNo())
-                .update();
+        this.workOrderMxService.lambdaUpdate().set(WorkOrderMxEntity::getFinish, 2)
+                .eq(WorkOrderMxEntity::getCode, storage.getBatchNo()).update();
 
         return CompletableFuture.completedFuture(null);
     }

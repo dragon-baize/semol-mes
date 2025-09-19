@@ -189,7 +189,7 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
         Integer type = outboundVo.getType();
         String orderNo = outboundVo.getOrderNo();
         if (type == 1) {
-            Long total = this.outsourceService.lambdaQuery().eq(OutsourceEntity::getCode, orderNo).count();
+            Long total = this.outsourceService.lambdaQuery().eq(OutsourceEntity::getOrderNo, orderNo).count();
             if (total > 0L) {
                 return SaResult.error("【" + orderNo + "】已创建出库单");
             }
@@ -225,7 +225,6 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
 
     @Override
     public SaResult insertInvoice(OutboundInfo outbound) {
-        // TODO 销售发货单发货单号
         OutboundEntity entity = Convert.convert(OutboundEntity.class, outbound);
 
         Date date = new Date();
@@ -262,12 +261,9 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
             sign = 1;
         }
 
-        this.saleOrderService.lambdaUpdate()
-                .set(SaleOrderEntity::getSign, sign)
-                .set(SaleOrderEntity::getUpdateTime, LocalDateTime.now())
-                .set(SaleOrderEntity::getUpdateUser, StpUtil.getLoginIdAsLong())
-                .eq(SaleOrderEntity::getCode, outbound.getOrderNo())
-                .update();
+        this.saleOrderService.lambdaUpdate().set(SaleOrderEntity::getSign, sign).set(SaleOrderEntity::getStatus, sign)
+                .set(SaleOrderEntity::getUpdateTime, LocalDateTime.now()).set(SaleOrderEntity::getUpdateUser, StpUtil.getLoginIdAsLong())
+                .eq(SaleOrderEntity::getCode, outbound.getOrderNo()).update();
 
         this.outboundMxService.saveBatch(list);
         return SaResult.data(entity);

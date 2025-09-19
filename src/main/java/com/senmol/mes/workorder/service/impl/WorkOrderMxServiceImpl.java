@@ -5,7 +5,6 @@ import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.Dict;
 import cn.hutool.core.util.ObjUtil;
@@ -78,37 +77,30 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public SaResult getByPid(Long pid) {
-        List<WorkOrderMxEntity> list = this.lambdaQuery()
-                .eq(WorkOrderMxEntity::getPid, pid)
-                .orderByDesc(WorkOrderMxEntity::getCreateTime)
-                .list();
+        List<WorkOrderMxEntity> list = this.lambdaQuery().eq(WorkOrderMxEntity::getPid, pid)
+                .orderByDesc(WorkOrderMxEntity::getCreateTime).list();
 
-        List<WorkOrderMxEntity> collect = list.stream()
-                .filter(item -> item.getIsFree() == 0 && item.getCreateTime().isBefore(LocalDate.now().atStartOfDay()))
-                .collect(Collectors.toList());
-        if (CollUtil.isNotEmpty(collect)) {
-            list.removeAll(collect);
+        ProduceEntity produce = this.produceService.getById(pid);
+        if (ObjUtil.isNotNull(produce) && produce.getStatus() < 2) {
+            List<WorkOrderMxEntity> collect = list.stream()
+                    .filter(item -> item.getIsFree() == 0 && item.getCreateTime().isBefore(LocalDate.now().atStartOfDay()))
+                    .collect(Collectors.toList());
+            if (CollUtil.isNotEmpty(collect)) {
+                list.removeAll(collect);
 
-            Date date = new Date();
-            int count = Math.toIntExact(this.lambdaQuery()
-                    .between(WorkOrderMxEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
-                    .count());
-            String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
+                int i = 0;
+                LocalDateTime now = LocalDateTime.now();
+                long userId = StpUtil.getLoginIdAsLong();
+                for (WorkOrderMxEntity workOrderMx : collect) {
+                    workOrderMx.setCreateTime(now);
+                    workOrderMx.setCreateUser(userId);
+                    workOrderMx.setUpdateTime(now);
+                    workOrderMx.setUpdateUser(userId);
+                    list.add(++i - 1, workOrderMx);
+                }
 
-            int i = 0;
-            LocalDateTime now = LocalDateTime.now();
-            long userId = StpUtil.getLoginIdAsLong();
-            for (WorkOrderMxEntity workOrderMx : collect) {
-                int num = 101 + (count + i++) * 3;
-                workOrderMx.setCode("ZGD" + format + num);
-                workOrderMx.setCreateTime(now);
-                workOrderMx.setCreateUser(userId);
-                workOrderMx.setUpdateTime(now);
-                workOrderMx.setUpdateUser(userId);
-                list.add(i - 1, workOrderMx);
+                this.updateBatchById(collect);
             }
-
-            this.updateBatchById(collect);
         }
 
         return SaResult.data(list);
@@ -256,12 +248,6 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
 
     @Override
     public SaResult insert(WorkOrderMxEntity workOrderMx) {
-        Date date = new Date();
-        Long count = this.lambdaQuery()
-                .between(WorkOrderMxEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
-                .count();
-
-        workOrderMx.setCode("ZGD" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + count * 3));
         this.save(workOrderMx);
 
         this.produceService.lambdaUpdate()
@@ -274,18 +260,6 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
 
     @Override
     public SaResult insertBatch(List<WorkOrderMxEntity> workOrderMxs) {
-        Date date = new Date();
-        int count = Math.toIntExact(this.lambdaQuery()
-                .between(WorkOrderMxEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
-                .count());
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
-
-        int i = 0;
-        for (WorkOrderMxEntity workOrderMx : workOrderMxs) {
-            int num = 101 + (count + i++) * 3;
-            workOrderMx.setCode("ZGD" + format + num);
-        }
-
         boolean b = this.saveBatch(workOrderMxs);
         if (b) {
             this.produceService.lambdaUpdate()
@@ -414,6 +388,8 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
             this.workOrderMxProcessService.lambdaUpdate().eq(WorkOrderMxProcess::getMxId, id).remove();
             // 删除工单明细物料数据
             this.workOrderMxMaterialService.lambdaUpdate().eq(WorkOrderMxMaterialEntity::getMxId, id).remove();
+            // 删除挂载过来的BOM
+            this.workOrderMaterialService.lambdaUpdate().eq(WorkOrderMaterial::getMxId, id).remove();
 
             Long pid = workOrderMx.getPid();
             List<WorkOrderMxEntity> list = this.lambdaQuery().eq(WorkOrderMxEntity::getPid, pid).list();

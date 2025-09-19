@@ -69,6 +69,11 @@ public class SaleOrderProductEntity extends Model<SaleOrderProductEntity> {
     @TableField(exist = false)
     private BigDecimal sendQty;
     /**
+     * 预发货数量
+     */
+    @TableField(exist = false)
+    private BigDecimal willSendQty;
+    /**
      * 单价
      */
     @TableField("price")

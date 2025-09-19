@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.senmol.mes.common.enums.ResultEnum;
 import com.senmol.mes.common.exception.BusinessException;
+import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.plan.entity.MrpEntity;
 import com.senmol.mes.plan.entity.SaleOrderEntity;
 import com.senmol.mes.plan.entity.SaleOrderProductEntity;
@@ -19,6 +20,7 @@ import com.senmol.mes.plan.mapper.SaleOrderMapper;
 import com.senmol.mes.plan.page.DeliveryVoPage;
 import com.senmol.mes.plan.page.OrderMxPage;
 import com.senmol.mes.plan.service.MrpService;
+import com.senmol.mes.plan.service.OutboundMxService;
 import com.senmol.mes.plan.service.SaleOrderProductService;
 import com.senmol.mes.plan.service.SaleOrderService;
 import com.senmol.mes.plan.until.PlanFromRedis;
@@ -58,6 +60,8 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
     private SysFromRedis sysFromRedis;
     @Resource
     private ThreadPoolTaskExecutor executor;
+    @Resource
+    private OutboundMxService outboundMxService;
 
     @Override
     public SaResult selectAll(Page<SaleOrderEntity> page, SaleOrderEntity saleOrder, Integer isMrp) {
@@ -81,15 +85,24 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
         List<SaleOrderProductEntity> products = this.saleOrderProductService.lambdaQuery()
                 .eq(SaleOrderProductEntity::getSaleOrderId, id)
                 .list();
+
+        // 查询产品出库单未出库的数量
+        List<Long> ids = products.stream().map(SaleOrderProductEntity::getProductId).collect(Collectors.toList());
+        List<CountVo> vos = this.outboundMxService.getUnshipQty(ids);
+
         products.forEach(item -> {
             item.setSendQty(item.getRealityQty());
 
-            ProductVo product = this.proFromRedis.getProduct(item.getProductId());
+            Long productId = item.getProductId();
+            ProductVo product = this.proFromRedis.getProduct(productId);
             if (ObjUtil.isNotNull(product)) {
                 item.setProductCode(product.getCode());
                 item.setProductTitle(product.getTitle());
                 item.setUnitTitle(this.sysFromRedis.getDictMx(product.getUnitId()));
             }
+
+            vos.stream().filter(v -> v.getAId().equals(productId))
+                    .findFirst().ifPresent(v -> item.setWillSendQty(v.getQty()));
         });
 
         vo.setProducts(products);

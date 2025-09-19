@@ -58,6 +58,14 @@ public interface OutboundMxMapper extends BaseMapper<OutboundMxEntity> {
     List<Long> getNotShip(@Param("outboundId") Long outboundId);
 
     /**
+     * 查询未完全出库的存货
+     *
+     * @param productIds 产品ID列表
+     * @return 结果
+     */
+    List<CountVo> getUnshipQty(@Param("productIds") List<Long> productIds);
+
+    /**
      * 批量更新
      *
      * @param mxVos 出库单明细

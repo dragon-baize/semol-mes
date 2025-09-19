@@ -10,14 +10,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.senmol.mes.common.enums.RedisKeyEnum;
 import com.senmol.mes.common.enums.ResultEnum;
+import com.senmol.mes.common.exception.BusinessException;
 import com.senmol.mes.common.redis.RedisService;
 import com.senmol.mes.common.utils.CheckToolUtil;
 import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.produce.entity.BomEntity;
 import com.senmol.mes.produce.entity.BomMaterialEntity;
+import com.senmol.mes.produce.entity.WorkmanshipEntity;
 import com.senmol.mes.produce.mapper.BomMapper;
 import com.senmol.mes.produce.service.BomMaterialService;
 import com.senmol.mes.produce.service.BomService;
+import com.senmol.mes.produce.service.WorkmanshipService;
 import com.senmol.mes.produce.utils.ProFromRedis;
 import com.senmol.mes.produce.vo.*;
 import com.senmol.mes.system.utils.SysFromRedis;
@@ -46,6 +49,8 @@ public class BomServiceImpl extends ServiceImpl<BomMapper, BomEntity> implements
     private BomMaterialService bomMaterialService;
     @Resource
     private RedisService redisService;
+    @Resource
+    private WorkmanshipService workmanshipService;
 
     @Override
     public SaResult selectAll(Page<BomEntity> page, BomEntity bom) {
@@ -93,17 +98,7 @@ public class BomServiceImpl extends ServiceImpl<BomMapper, BomEntity> implements
             return SaResult.error("重复绑定的产品数据");
         }
 
-        List<BomMaterialEntity> materials = bom.getMaterials();
-        List<Long> ids = materials.stream().filter(item -> item.getType() == 1).map(BomMaterialEntity::getMaterialId)
-                .collect(Collectors.toList());
-        if (CollUtil.isNotEmpty(ids)) {
-            List<String> productCodes = this.baseMapper.unboundBomProduct(ids);
-            if (CollUtil.isNotEmpty(productCodes)) {
-                return SaResult.error("存在未设置清单的半成品，编号为：" + productCodes);
-            }
-        }
-
-        // 保存清单数据
+        List<BomMaterialEntity> materials = this.checkBom(bom);
         boolean b = this.save(bom);
         if (b) {
             this.dealBom(bom);
@@ -115,19 +110,7 @@ public class BomServiceImpl extends ServiceImpl<BomMapper, BomEntity> implements
 
     @Override
     public SaResult updateBom(BomEntity bom) {
-        List<BomMaterialEntity> materials = bom.getMaterials();
-
-        List<Long> ids = materials.stream()
-                .filter(item -> item.getType() == 1)
-                .map(BomMaterialEntity::getMaterialId)
-                .collect(Collectors.toList());
-        if (CollUtil.isNotEmpty(ids)) {
-            List<String> productCodes = this.baseMapper.unboundBomProduct(ids);
-            if (CollUtil.isNotEmpty(productCodes)) {
-                return SaResult.error("存在未设置清单的半成品，编号为：" + productCodes);
-            }
-        }
-
+        List<BomMaterialEntity> materials = this.checkBom(bom);
         boolean b = this.updateById(bom);
         if (b) {
             this.bomMaterialService.lambdaUpdate().eq(BomMaterialEntity::getBomId, bom.getId()).remove();
@@ -152,6 +135,25 @@ public class BomServiceImpl extends ServiceImpl<BomMapper, BomEntity> implements
         // 删除缓存
         this.redisService.del(RedisKeyEnum.PRODUCE_BOM.getKey() + bom.getProductId());
         return SaResult.ok(ResultEnum.DELETE_SUCCESS.getMsg());
+    }
+
+    private List<BomMaterialEntity> checkBom(BomEntity bom) {
+        List<BomMaterialEntity> materials = bom.getMaterials();
+
+        List<Long> ids = materials.stream()
+                .filter(item -> item.getType() == 1)
+                .map(BomMaterialEntity::getMaterialId)
+                .collect(Collectors.toList());
+        if (CollUtil.isNotEmpty(ids)) {
+            List<String> productCodes = this.baseMapper.unboundBomProduct(ids);
+            if (CollUtil.isNotEmpty(productCodes)) {
+                throw new BusinessException("存在未设置清单的半成品，编号为：" + productCodes);
+            }
+        }
+
+        WorkmanshipEntity workmanship = this.workmanshipService.getById(bom.getWorkmanshipId());
+        bom.setWmsVersion(workmanship.getVersion());
+        return materials;
     }
 
     static void setMaterialValue(BomMaterialEntity bomMaterial, ProFromRedis proFromRedis, SysFromRedis sysFromRedis) {

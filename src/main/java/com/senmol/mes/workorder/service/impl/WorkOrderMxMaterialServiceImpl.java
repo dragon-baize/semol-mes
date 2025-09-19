@@ -2,6 +2,8 @@ package com.senmol.mes.workorder.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.senmol.mes.common.enums.ResultEnum;
@@ -35,10 +37,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -374,13 +373,17 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
 
     private void changeProduce(Integer free, Long mxId, Long pid) {
         if (free == 0) {
-            this.workOrderMxService.lambdaUpdate()
-                    .set(WorkOrderMxEntity::getIsFree, 1)
-                    .eq(WorkOrderMxEntity::getId, mxId)
-                    .update();
+            // 生成工单编号
+            Date date = new Date();
+            Long total = this.workOrderMxService.lambdaQuery().eq(WorkOrderMxEntity::getIsFree, 1)
+                    .between(WorkOrderMxEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
+                    .count();
+            String code = "ZGD" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + String.format("%03d", ++total);
 
-            List<WorkOrderMxEntity> list = this.workOrderMxService.lambdaQuery()
-                    .eq(WorkOrderMxEntity::getPid, pid)
+            this.workOrderMxService.lambdaUpdate().set(WorkOrderMxEntity::getCode, code)
+                    .set(WorkOrderMxEntity::getIsFree, 1).eq(WorkOrderMxEntity::getId, mxId).update();
+
+            List<WorkOrderMxEntity> list = this.workOrderMxService.lambdaQuery().eq(WorkOrderMxEntity::getPid, pid)
                     .list();
 
             long count = list.stream().filter(item -> item.getIsFree() == 1).count();

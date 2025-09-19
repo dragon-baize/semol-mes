@@ -95,6 +95,26 @@
           AND qty > IFNULL(act_qty, 0)
     </select>
 
+    <select id="getUnshipQty" resultType="com.senmol.mes.common.utils.CountVo">
+        SELECT
+            om.goods_id AS aId,
+            IFNULL( SUM( om.qty - om.act_qty ), 0 ) AS qty
+        FROM
+            plan_outbound_mx om
+                LEFT JOIN plan_outbound o ON om.outbound_id = o.id
+        WHERE
+            o.deleted = 0
+          AND o.type = 10
+          AND om.goods_id IN (
+              <foreach collection="productIds" item="productId" separator=",">
+                  #{productId}
+              </foreach>
+            )
+          AND o.status != 2
+        GROUP BY
+            om.goods_id
+    </select>
+
     <update id="modifyBatch">
         UPDATE plan_outbound_mx
         SET act_qty =

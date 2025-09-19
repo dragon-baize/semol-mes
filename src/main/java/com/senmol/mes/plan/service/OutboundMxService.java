@@ -52,6 +52,14 @@ public interface OutboundMxService extends IService<OutboundMxEntity> {
     List<Long> getNotShip(Long outboundId);
 
     /**
+     * 查询未完全出库的存货
+     *
+     * @param productIds 产品ID列表
+     * @return 结果
+     */
+    List<CountVo> getUnshipQty(List<Long> productIds);
+
+    /**
      * 批量更新
      *
      * @param mxVos 出库单明细
