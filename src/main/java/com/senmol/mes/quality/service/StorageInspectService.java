@@ -23,6 +23,14 @@ public interface StorageInspectService extends IService<StorageInspectEntity> {
     Page<StorageInspectVo> selectAll(Page<StorageInspectVo> page, StorageInspectEntity storageInspect);
 
     /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    int getTodayCount(String date);
+
+    /**
      * 新增数据
      *
      * @param storageInspect 实体对象
@@ -38,6 +46,12 @@ public interface StorageInspectService extends IService<StorageInspectEntity> {
      */
     SaResult updateStorageInspect(StorageInspectEntity storageInspect);
 
+    /**
+     * 退回
+     *
+     * @param id 主键
+     * @return 结果
+     */
     SaResult back(Long id);
 
 }

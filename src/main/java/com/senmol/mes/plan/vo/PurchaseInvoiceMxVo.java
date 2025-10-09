@@ -30,6 +30,10 @@ public class PurchaseInvoiceMxVo extends Model<PurchaseInvoiceMxVo> {
      */
     private Long orderId;
     /**
+     * 采购单编号
+     */
+    private String orderNo;
+    /**
      * 入库ID\退货ID
      */
     private Long mxId;

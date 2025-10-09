@@ -119,14 +119,14 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
 
         CompletableFuture<List<OrderMxVo>> orderMx = CompletableFuture.supplyAsync(() -> this.setVos(vos),
                         this.executor).exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("销售订单明细列表查询失败", e);
                     throw new BusinessException("销售订单明细列表查询失败，请重试");
                 });
 
         CompletableFuture<OrderMxVoTotal> selectTotal =
                 CompletableFuture.supplyAsync(() -> this.baseMapper.selectOrderMxTotal(page.getStartTime(),
                                 page.getEndTime(), pojo), this.executor).exceptionally(e -> {
-                            e.printStackTrace();
+                            log.error("合计统计失败", e);
                             throw new BusinessException("合计统计失败，请重试");
                         });
 
@@ -143,7 +143,7 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
     public SaResult deliveryMx(DeliveryVoPage page, OrderMxPojo pojo) {
         CompletableFuture<List<DeliveryVo>> selectAll = CompletableFuture.supplyAsync(() -> this.selectAll(page, pojo), this.executor)
                 .exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("销售发货明细列表查询失败", e);
                     throw new BusinessException("销售发货明细列表查询失败，请重试");
                 });
 
@@ -155,7 +155,7 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
         CompletableFuture<DeliveryVoTotal> selectTotal =
                 CompletableFuture.supplyAsync(() -> this.selectTotal(page, pojo), this.executor)
                         .exceptionally(e -> {
-                            e.printStackTrace();
+                            log.error("合计统计失败", e);
                             throw new BusinessException("合计统计失败，请重试");
                         });
 
@@ -312,7 +312,7 @@ public class SaleOrderServiceImpl extends ServiceImpl<SaleOrderMapper, SaleOrder
         if (ObjUtil.isNotNull(pojo.getType())) {
             return this.baseMapper.selectDeliveryTotal(page.getStartTime(), page.getEndTime(), pojo, pojo.getType());
         } else {
-            DeliveryVoTotal total = this.baseMapper.selectDeliveryTotal(page.getStartTime(), page.getEndTime(), pojo, 1);
+            DeliveryVoTotal total = this.baseMapper.selectDeliveryTotal(page.getStartTime(), page.getEndTime(), pojo, -1);
             DeliveryVoTotal temp = this.baseMapper.selectDeliveryTotal(page.getStartTime(), page.getEndTime(), pojo, 2);
             total.setTotalQty(total.getTotalQty().subtract(temp.getTotalQty()));
             total.setTotalPrice(total.getTotalPrice().subtract(temp.getTotalPrice()));

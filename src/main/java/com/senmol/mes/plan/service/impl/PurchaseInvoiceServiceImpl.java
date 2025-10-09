@@ -2,9 +2,6 @@ package com.senmol.mes.plan.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -34,8 +31,8 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -66,13 +63,10 @@ public class PurchaseInvoiceServiceImpl extends ServiceImpl<PurchaseInvoiceMappe
 
     @Override
     public SaResult selectMx(Long id) {
-        List<PurchaseInvoiceMx> mxs =
-                this.purchaseInvoiceMxService.lambdaQuery().eq(PurchaseInvoiceMx::getPid, id).list();
-        if (CollUtil.isEmpty(mxs)) {
+        List<PurchaseInvoiceMxVo> mxVos = this.baseMapper.getInvoiceMx(id);
+        if (CollUtil.isEmpty(mxVos)) {
             return SaResult.ok();
         }
-
-        List<PurchaseInvoiceMxVo> mxVos = Convert.toList(PurchaseInvoiceMxVo.class, mxs);
 
         List<Long> storageIds =
                 mxVos.stream().filter(item -> item.getType() == 0).map(PurchaseInvoiceMxVo::getMxId).collect(Collectors.toList());
@@ -122,7 +116,7 @@ public class PurchaseInvoiceServiceImpl extends ServiceImpl<PurchaseInvoiceMappe
 
             return list;
         }, this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("采购开票列表查询失败", e);
             throw new BusinessException("采购开票列表查询失败，请重试");
         });
 
@@ -134,7 +128,7 @@ public class PurchaseInvoiceServiceImpl extends ServiceImpl<PurchaseInvoiceMappe
         CompletableFuture<PurchaseInvoiceTotal> selectTotal =
                 CompletableFuture.supplyAsync(() -> this.baseMapper.selectTotal(page.getStartTime(),
                         page.getEndTime(), purchaseInvoiceVo), this.executor).exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("合计统计失败", e);
                     throw new BusinessException("合计统计失败，请重试");
                 });
 
@@ -151,15 +145,14 @@ public class PurchaseInvoiceServiceImpl extends ServiceImpl<PurchaseInvoiceMappe
     public SaResult insert(PurchaseInvoice purchaseInvoice) {
         List<PurchaseInvoiceMx> mxs = purchaseInvoice.getMxs();
         List<Long> mxIds = mxs.stream().map(PurchaseInvoiceMx::getMxId).collect(Collectors.toList());
-        Long count = this.purchaseInvoiceMxService.lambdaQuery().in(PurchaseInvoiceMx::getMxId, mxIds).count();
-        if (count > 0L) {
+        Long total = this.purchaseInvoiceMxService.lambdaQuery().in(PurchaseInvoiceMx::getMxId, mxIds).count();
+        if (total > 0L) {
             return SaResult.error("存在已开票数据");
         }
 
-        Date date = new Date();
-        Long total = this.lambdaQuery().between(PurchaseInvoice::getCreateTime, DateUtil.beginOfDay(date),
-                DateUtil.endOfDay(date)).count();
-        String code = "CGKP" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + total * 3);
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        String code = "CGKP" + date.replace("-", "") + (101 + count * 3);
         purchaseInvoice.setCode(code);
         boolean b = this.save(purchaseInvoice);
         if (b) {

@@ -121,6 +121,10 @@ public class StorageReservaVo implements Serializable {
      */
     private BigDecimal taxRate;
     /**
+     * 原单价
+     */
+    private BigDecimal originalPrice;
+    /**
      * 单价
      */
     private BigDecimal price;

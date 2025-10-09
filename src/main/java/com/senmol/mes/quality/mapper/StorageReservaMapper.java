@@ -32,5 +32,14 @@ public interface StorageReservaMapper extends BaseMapper<StorageReserva> {
      */
     void saveReservaBatch(@Param("entities") List<StorageReserva> entities);
 
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date   日期
+     * @param source 数据来源 0-检测 1-新增 2-退货 3-过期
+     * @return 数量
+     */
+    int getTodayCount(@Param("date") String date, @Param("source") Integer source);
+
 }
 

@@ -6,6 +6,7 @@ import com.senmol.mes.common.utils.OutboundMaterial;
 import com.senmol.mes.plan.entity.OutsourceEntity;
 import com.senmol.mes.plan.vo.ProductQty;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -55,6 +56,15 @@ public interface OutsourceMapper extends BaseMapper<OutsourceEntity> {
      * @return 委外计划信息
      */
     List<OutsourceEntity> getByCpId(@Param("productIds") List<Long> productIds);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_outsource WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

@@ -73,7 +73,8 @@
         SELECT
             mx.id AS mxId,
             mx.code AS mxCode,
-            IFNULL( mx.non_defective, mx.qty ) AS qty,
+            mx.qty,
+            mx.non_defective,
             mx.begin_time,
             o.product_id
         FROM

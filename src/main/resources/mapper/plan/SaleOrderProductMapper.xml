@@ -6,53 +6,36 @@
         UPDATE plan_sale_order_product
         SET reality_qty =
         CASE
-            product_id
             <foreach collection="entities" item="entity">
-                WHEN #{entity.productId} THEN
-                    reality_qty + #{entity.realityQty}
+                WHEN product_id = #{entity.productId} THEN reality_qty + #{entity.realityQty}
             </foreach>
-            END
+            ELSE reality_qty
+        END
         WHERE
             product_id IN (
                 <foreach collection="entities" item="entity" separator=",">
                     #{entity.productId}
                 </foreach>
             )
-        AND sale_order_id = (
-            SELECT
-                id
-            FROM
-                plan_sale_order
-            WHERE
-                code = #{saleOrderCode}
-              AND deleted = 0
-        )
+        AND sale_order_id = #{saleOrderId}
     </update>
 
     <update id="modifyBatchById2">
         UPDATE plan_sale_order_product
         SET reality_qty =
         CASE
-            product_id
             <foreach collection="map" item="value" index="key">
-                WHEN #{key} THEN
-                    GREATEST(reality_qty - #{value}, 0)
+                WHEN product_id = #{key} THEN GREATEST(reality_qty - #{value}, 0)
             </foreach>
-            END
+            ELSE reality_qty
+        END
         WHERE
             product_id IN (
                 <foreach collection="map" index="key" separator=",">
                     #{key}
                 </foreach>
             )
-        AND sale_order_id = (
-            SELECT
-                id
-            FROM
-                plan_sale_order
-            WHERE
-                code = #{saleOrderCode}
-        )
+        AND sale_order_id = #{saleOrderId}
     </update>
 
     <select id="getSumQty" resultType="com.senmol.mes.plan.vo.ProductQty">

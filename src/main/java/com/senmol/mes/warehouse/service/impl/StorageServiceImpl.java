@@ -14,27 +14,46 @@ import com.senmol.mes.common.enums.ResultEnum;
 import com.senmol.mes.common.exception.BusinessException;
 import com.senmol.mes.common.redis.RedisService;
 import com.senmol.mes.common.utils.CountVo;
+import com.senmol.mes.plan.entity.OutsourceEntity;
+import com.senmol.mes.plan.entity.ProduceEntity;
+import com.senmol.mes.plan.entity.PurchaseOrderEntity;
+import com.senmol.mes.plan.entity.SaleOrderEntity;
+import com.senmol.mes.plan.service.OutsourceService;
+import com.senmol.mes.plan.service.ProduceService;
+import com.senmol.mes.plan.service.PurchaseOrderService;
+import com.senmol.mes.plan.service.SaleOrderService;
 import com.senmol.mes.produce.entity.MaterialEntity;
 import com.senmol.mes.produce.entity.ProductEntity;
+import com.senmol.mes.produce.entity.ProductLineEntity;
 import com.senmol.mes.produce.service.MaterialService;
+import com.senmol.mes.produce.service.ProductLineService;
 import com.senmol.mes.produce.service.ProductService;
 import com.senmol.mes.produce.utils.ProFromRedis;
+import com.senmol.mes.produce.vo.BomVo;
 import com.senmol.mes.produce.vo.MaterialVo;
 import com.senmol.mes.produce.vo.ProductVo;
+import com.senmol.mes.quality.entity.StorageInspectEntity;
+import com.senmol.mes.quality.service.StorageInspectService;
 import com.senmol.mes.system.utils.SysFromRedis;
 import com.senmol.mes.warehouse.entity.StockEntity;
 import com.senmol.mes.warehouse.entity.StorageEntity;
 import com.senmol.mes.warehouse.mapper.StorageMapper;
 import com.senmol.mes.warehouse.page.*;
+import com.senmol.mes.warehouse.service.ReceiptService;
 import com.senmol.mes.warehouse.service.StockService;
 import com.senmol.mes.warehouse.service.StorageService;
 import com.senmol.mes.warehouse.utils.WarAsyncUtil;
 import com.senmol.mes.warehouse.vo.*;
+import com.senmol.mes.workorder.entity.WorkOrderMxEntity;
+import com.senmol.mes.workorder.service.WorkOrderMxService;
+import com.senmol.mes.workorder.vo.WorkOrderPojo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -66,6 +85,22 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
     private MaterialService materialService;
     @Resource
     private ProductService productService;
+    @Resource
+    private StorageInspectService storageInspectService;
+    @Resource
+    private ReceiptService receiptService;
+    @Resource
+    private ProduceService produceService;
+    @Resource
+    private SaleOrderService saleOrderService;
+    @Resource
+    private ProductLineService productLineService;
+    @Resource
+    private WorkOrderMxService workOrderMxService;
+    @Resource
+    private PurchaseOrderService purchaseOrderService;
+    @Resource
+    private OutsourceService outsourceService;
 
     @Override
     public BigDecimal getStorage(Long productId) {
@@ -101,7 +136,7 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
 
             return vos;
         }, this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("入库数据列表查询失败", e);
             throw new BusinessException("入库数据列表查询失败，请重试");
         });
 
@@ -113,7 +148,7 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
         CompletableFuture<StorageTotal> selectTotal = CompletableFuture.supplyAsync(() ->
                         this.baseMapper.selectTotal(page.getStartTime(), page.getEndTime(), storage), this.executor)
                 .exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("合计统计失败", e);
                     throw new BusinessException("合计统计失败，请重试");
                 });
 
@@ -185,13 +220,13 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
                 return this.calculate(entityPage.getRecords(), summary, type);
             }
         }, this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("库存汇总列表查询失败", e);
             throw new BusinessException("库存汇总列表查询失败，请重试");
         });
 
         CompletableFuture<SummaryTotal> selectTotal = CompletableFuture.supplyAsync(() ->
                 this.getTotal(summary), this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("库存汇总合计计算失败", e);
             throw new BusinessException("库存汇总合计计算失败，请重试");
         });
 
@@ -209,14 +244,14 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
         CompletableFuture<List<Inventory>> selectAll =
                 CompletableFuture.supplyAsync(() -> this.baseMapper.inventory(page, inventory), this.executor)
                 .exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("出入库明细列表查询失败", e);
                     throw new BusinessException("出入库明细列表查询失败，请重试");
                 });
 
         CompletableFuture<BigDecimal> selectTotal = CompletableFuture.supplyAsync(() ->
                         this.baseMapper.sumInventory(inventory, page.getStartTime(), page.getEndTime()), this.executor)
                 .exceptionally(e -> {
-            e.printStackTrace();
+            log.error("合计统计失败", e);
             throw new BusinessException("合计统计失败，请重试");
         });
 
@@ -234,8 +269,8 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
 
     @Override
     public SaResult insertStorage(StorageVo storageVo) {
-        Long count = this.lambdaQuery().eq(StorageEntity::getBatchNo, storageVo.getBatchNo()).count();
-        if (count > 0L) {
+        boolean exists = this.lambdaQuery().eq(StorageEntity::getBatchNo, storageVo.getBatchNo()).exists();
+        if (exists) {
             return SaResult.error("批次号重复");
         }
 
@@ -244,17 +279,38 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
         storage.setResidueQty(storage.getQty());
         boolean b = this.save(storage);
         if (b) {
-            CompletableFuture.allOf(
-                    this.warAsyncUtil.updateStock(storage),
-                    this.warAsyncUtil.updateStorageInspect(storage),
-                    this.warAsyncUtil.updateReceipt(storage),
-                    this.warAsyncUtil.updateWorkOrder(storage),
-                    this.warAsyncUtil.updatePurchaseOrder(storage),
-                    this.warAsyncUtil.updateOutsource(storage)
-            ).exceptionally(e -> {
-                e.printStackTrace();
-                throw new BusinessException("入库失败，请重试");
-            }).join();
+            try {
+                this.updateStock(storage);
+            } catch (Exception e) {
+                throw new BusinessException("库位总量更新失败，请重试");
+            }
+
+            this.storageInspectService.lambdaUpdate().set(StorageInspectEntity::getStatus, 2)
+                    .set(StorageInspectEntity::getUpdateTime, storage.getCreateTime())
+                    .set(StorageInspectEntity::getUpdateUser, storage.getCreateUser())
+                    .eq(StorageInspectEntity::getCode, storage.getSiCode()).update();
+
+            // 更新收货入库数量
+            this.receiptService.updateStorageQty(storage.getSiCode(), storage.getQty(), storage.getCreateTime(),
+                        storage.getCreateUser());
+
+            try {
+                this.updateWorkOrder(storage);
+            } catch (Exception e) {
+                throw new BusinessException("工单、产线完成率更新失败，请重试");
+            }
+
+            try {
+                this.updatePurchaseOrder(storage);
+            } catch (Exception e) {
+                throw new BusinessException("采购订单更新失败，请重试");
+            }
+
+            try {
+                this.updateOutsource(storage);
+            } catch (Exception e) {
+                throw new BusinessException("委外计划更新失败，请重试");
+            }
         }
 
         return SaResult.ok(ResultEnum.INSERT_SUCCESS.getMsg());
@@ -345,11 +401,7 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
         List<Object> failList = new ArrayList<>();
 
         // 批次号不能重复
-        List<String> batchNos = this.lambdaQuery()
-                .list()
-                .stream()
-                .map(StorageEntity::getBatchNo)
-                .collect(Collectors.toList());
+        List<String> batchNos = this.lambdaQuery().list().stream().map(StorageEntity::getBatchNo).collect(Collectors.toList());
 
         // 获取所有物料/产品信息
         List<ProduceGoods> goods = this.getGoods();
@@ -417,6 +469,117 @@ public class StorageServiceImpl extends ServiceImpl<StorageMapper, StorageEntity
     @Override
     public void setInvoices(List<Long> storageIds, Long invoice) {
         this.baseMapper.setInvoices(storageIds, invoice);
+    }
+
+    /**
+     * 更新库存量
+     */
+    private void updateStock(StorageEntity storage) {
+        StockEntity stock = this.stockService.getById(storage.getStockId());
+        BigDecimal add = stock.getQty().add(storage.getQty());
+        this.stockService.lambdaUpdate().set(StockEntity::getQty, add).set(StockEntity::getUpdateTime, storage.getCreateTime())
+                .set(StockEntity::getUpdateUser, storage.getCreateUser()).eq(StockEntity::getId, stock.getId()).update();
+    }
+    /**
+     * 更新工单
+     */
+    private void updateWorkOrder(StorageEntity storage) {
+        WorkOrderPojo workOrder = this.produceService.getByMxCode(storage.getBatchNo());
+        if (ObjectUtil.isNull(workOrder)) {
+            return;
+        }
+
+        LocalDateTime updateTime = storage.getCreateTime();
+        Long updateUser = storage.getCreateUser();
+        BigDecimal add = workOrder.getRecQty().add(storage.getQty());
+        int i = add.compareTo(workOrder.getProductQty());
+
+        if (i >= 0) {
+            // 设置计划的实际完成时间
+            this.produceService.lambdaUpdate().set(ProduceEntity::getRealityFinishTime, LocalDateTime.now())
+                    .set(ProduceEntity::getRecQty, add).set(ProduceEntity::getStatus, 2)
+                    .set(ProduceEntity::getUpdateTime, updateTime).set(ProduceEntity::getUpdateUser, updateUser)
+                    .eq(ProduceEntity::getId, workOrder.getId()).update();
+
+            // 设置备货订单为完成
+            this.saleOrderService.lambdaUpdate().set(SaleOrderEntity::getStatus, 2)
+                    .eq(SaleOrderEntity::getCode, workOrder.getOrderNo()).eq(SaleOrderEntity::getType, 1).update();
+        } else {
+            // 设置计划的入库数量
+            this.produceService.lambdaUpdate().set(ProduceEntity::getRecQty, add)
+                    .set(ProduceEntity::getUpdateTime, updateTime).set(ProduceEntity::getUpdateUser, updateUser)
+                    .eq(ProduceEntity::getId, workOrder.getId()).update();
+        }
+
+        BomVo bom = this.proFromRedis.getBom(storage.getGoodsId());
+        ProductLineEntity productLine = this.productLineService.getById(bom.getProductLineId());
+        // 变更产线完成率、总量
+        BigDecimal total = productLine.getTotal();
+        BigDecimal rate = productLine.getRate();
+        BigDecimal subtract = total.subtract(workOrder.getQty());
+        if (subtract.compareTo(BigDecimal.ZERO) <= 0) {
+            subtract = BigDecimal.ZERO;
+            rate = BigDecimal.ZERO;
+        } else {
+            rate = rate.multiply(total).subtract(workOrder.getNonDefective()).divide(subtract, 4, RoundingMode.HALF_UP);
+            if (rate.compareTo(BigDecimal.ZERO) < 0) {
+                rate = BigDecimal.ZERO;
+            }
+        }
+
+        this.productLineService.lambdaUpdate().set(ProductLineEntity::getTotal, subtract)
+                .set(ProductLineEntity::getRate, rate).eq(ProductLineEntity::getId, productLine.getId()).update();
+
+        this.workOrderMxService.lambdaUpdate().set(WorkOrderMxEntity::getFinish, 2)
+                .eq(WorkOrderMxEntity::getCode, storage.getBatchNo()).update();
+    }
+
+    /**
+     * 更新采购单
+     */
+    private void updatePurchaseOrder(StorageEntity storage) {
+        PurchaseOrderEntity purchaseOrder = this.purchaseOrderService.getBySiCode(storage.getSiCode());
+        if (BeanUtil.isEmpty(purchaseOrder)) {
+            return;
+        }
+
+        BigDecimal add = purchaseOrder.getStorageQty().add(storage.getQty());
+        int status = 3;
+        if (purchaseOrder.getConfirmQty().compareTo(add) <= 0) {
+            status = 2;
+        }
+
+        this.purchaseOrderService.lambdaUpdate()
+                .set(PurchaseOrderEntity::getStorageQty, add)
+                .set(PurchaseOrderEntity::getStatus, status)
+                .set(PurchaseOrderEntity::getUpdateTime, storage.getCreateTime())
+                .set(PurchaseOrderEntity::getUpdateUser, storage.getCreateUser())
+                .eq(PurchaseOrderEntity::getId, purchaseOrder.getId())
+                .update();
+    }
+
+    /**
+     * 修改委外计划状态
+     */
+    private void updateOutsource(StorageEntity storage) {
+        OutsourceEntity outsource = this.outsourceService.getBySiCode(storage.getSiCode());
+        if (BeanUtil.isEmpty(outsource)) {
+            return;
+        }
+
+        BigDecimal add = outsource.getStorageQty().add(storage.getQty());
+        int status = 1;
+        if (outsource.getQty().compareTo(add) <= 0) {
+            status = 3;
+        }
+
+        this.outsourceService.lambdaUpdate()
+                .set(OutsourceEntity::getStorageQty, add)
+                .set(OutsourceEntity::getStatus, status)
+                .set(OutsourceEntity::getUpdateTime, storage.getCreateTime())
+                .set(OutsourceEntity::getUpdateUser, storage.getCreateUser())
+                .eq(OutsourceEntity::getId, outsource.getId())
+                .update();
     }
 
     private List<ProduceGoods> getGoods() {

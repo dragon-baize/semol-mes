@@ -1,12 +1,17 @@
 package com.senmol.mes.plan.service.impl;
 
+import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.senmol.mes.plan.mapper.SaleOrderProductMapper;
+import com.senmol.mes.common.utils.CheckToolUtil;
+import com.senmol.mes.plan.entity.SaleOrderEntity;
 import com.senmol.mes.plan.entity.SaleOrderProductEntity;
+import com.senmol.mes.plan.mapper.SaleOrderProductMapper;
 import com.senmol.mes.plan.service.SaleOrderProductService;
+import com.senmol.mes.plan.service.SaleOrderService;
 import com.senmol.mes.plan.vo.ProductQty;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -20,14 +25,25 @@ import java.util.Map;
 @Service("saleOrderProductService")
 public class SaleOrderProductServiceImpl extends ServiceImpl<SaleOrderProductMapper, SaleOrderProductEntity> implements SaleOrderProductService {
 
+    @Resource
+    private SaleOrderService saleOrderService;
+
     @Override
     public void modifyBatchById(List<SaleOrderProductEntity> products, String saleOrderCode) {
-        this.baseMapper.modifyBatchById(products, saleOrderCode);
+        SaleOrderEntity saleOrder = this.saleOrderService.lambdaQuery().eq(SaleOrderEntity::getCode, saleOrderCode)
+                .last(CheckToolUtil.LIMIT).one();
+        if (ObjUtil.isNotNull(saleOrder)) {
+            this.baseMapper.modifyBatchById(products, saleOrder.getId());
+        }
     }
 
     @Override
     public void modifyBatchById2(Map<Long, BigDecimal> map, String saleOrderCode) {
-        this.baseMapper.modifyBatchById2(map, saleOrderCode);
+        SaleOrderEntity saleOrder = this.saleOrderService.lambdaQuery().eq(SaleOrderEntity::getCode, saleOrderCode)
+                .last(CheckToolUtil.LIMIT).one();
+        if (ObjUtil.isNotNull(saleOrder)) {
+            this.baseMapper.modifyBatchById2(map, saleOrder.getId());
+        }
     }
 
     @Override

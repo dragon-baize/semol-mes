@@ -89,7 +89,7 @@ public interface SaleOrderMapper extends BaseMapper<SaleOrderEntity> {
      * @param startTime 开始时间
      * @param endTime   结束时间
      * @param pojo      查询参数
-     * @param type      类型
+     * @param type      类型 1-发货 2-退货 3-调价
      * @return 合计数据
      */
     DeliveryVoTotal selectDeliveryTotal(@Param("startTime") LocalDate startTime,
@@ -102,8 +102,7 @@ public interface SaleOrderMapper extends BaseMapper<SaleOrderEntity> {
      *
      * @return 条数
      */
-    @Select("SELECT count(*) FROM plan_sale_order WHERE DATE_FORMAT(create_time, '%Y-%m-%d') = DATE_FORMAT(NOW(), " +
-            "'%Y-%m-%d')")
+    @Select("SELECT count(*) FROM plan_sale_order WHERE DATE_FORMAT(create_time, '%Y-%m-%d') = DATE_FORMAT(NOW(), '%Y-%m-%d')")
     int count();
 
 }

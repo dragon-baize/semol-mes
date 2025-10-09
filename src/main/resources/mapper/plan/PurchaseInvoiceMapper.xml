@@ -72,5 +72,21 @@
             <include refid="timeInterval"/>
     </select>
 
+    <select id="getInvoiceMx" resultType="com.senmol.mes.plan.vo.PurchaseInvoiceMxVo">
+        SELECT
+            pim.pid,
+            pim.order_id,
+            po.order_no,
+            pim.mx_id,
+            pim.type,
+            pim.qty,
+            pim.tax_price
+        FROM
+            plan_purchase_invoice_mx pim
+                LEFT JOIN plan_purchase_order po ON pim.order_id = po.id AND po.deleted = 0
+        WHERE
+            pim.pid = #{pid}
+    </select>
+
 </mapper>
 

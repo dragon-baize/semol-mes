@@ -29,7 +29,6 @@ import com.senmol.mes.workorder.mapper.WorkOrderMxMapper;
 import com.senmol.mes.workorder.service.*;
 import com.senmol.mes.workorder.vo.StationInfo;
 import com.senmol.mes.workorder.vo.*;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +38,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -71,8 +69,6 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
     private WorkOrderMxBadModeService workOrderMxBadModeService;
     @Resource
     private WorkOrderMxProcessUserService workOrderMxProcessUserService;
-    @Resource
-    private ThreadPoolTaskExecutor executor;
 
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
@@ -147,17 +143,36 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
     }
 
     @Override
-    public StationInfo getStationInfo(String code) {
+    public SaResult getStationInfo(String code, Long stationId) {
         StationInfo info = this.baseMapper.getByMxCode(code);
         if (info == null) {
-            return null;
+            return SaResult.ok();
+        }
+
+        WorkOrderMxProcess mxProcess = this.workOrderMxProcessService.lambdaQuery()
+                .eq(WorkOrderMxProcess::getMxId, info.getMxId()).eq(WorkOrderMxProcess::getStationId, stationId).one();
+        if (ObjUtil.isNull(mxProcess)) {
+            return SaResult.error("工序不存在，请检查产线工单是否匹配");
+        }
+
+        if (mxProcess.getStatus() == 2) {
+            info.setQty(mxProcess.getNonDefective().add(mxProcess.getDefective()).add(mxProcess.getRework()));
+        } else {
+            info.setQty(info.getNonDefective());
+        }
+
+        ProcessVo process = this.proFromRedis.getProcess(mxProcess.getProcessId());
+        if (ObjUtil.isNotNull(process)) {
+            info.setProcessId(process.getId());
+            info.setProcessTitle(process.getTitle());
         }
 
         ProductVo product = this.proFromRedis.getProduct(info.getProductId());
         if (ObjUtil.isNotNull(product)) {
             info.setProductCode(product.getCode());
         }
-        return info;
+
+        return SaResult.data(info);
     }
 
     @Override
@@ -189,26 +204,24 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
     public List<OrderMaterialInfo> retrospect(String code) {
         List<OrderMaterialInfo> infos = this.baseMapper.retrospect(code);
 
-        infos.stream()
-                .filter(Objects::nonNull)
-                .forEach(item -> {
-                    if (item.getType() > 1) {
-                        MaterialVo material = this.proFromRedis.getMaterial(item.getMaterialId());
-                        if (ObjUtil.isNotNull(material)) {
-                            item.setMaterialCode(material.getCode());
-                            item.setMaterialTitle(material.getTitle());
-                        }
-                    } else {
-                        ProductVo product = this.proFromRedis.getProduct(item.getMaterialId());
-                        if (ObjUtil.isNotNull(product)) {
-                            item.setMaterialCode(product.getCode());
-                            item.setMaterialTitle(product.getTitle());
-                        }
-                    }
+        infos.stream().filter(Objects::nonNull).forEach(item -> {
+            if (item.getType() > 1) {
+                MaterialVo material = this.proFromRedis.getMaterial(item.getMaterialId());
+                if (ObjUtil.isNotNull(material)) {
+                    item.setMaterialCode(material.getCode());
+                    item.setMaterialTitle(material.getTitle());
+                }
+            } else {
+                ProductVo product = this.proFromRedis.getProduct(item.getMaterialId());
+                if (ObjUtil.isNotNull(product)) {
+                    item.setMaterialCode(product.getCode());
+                    item.setMaterialTitle(product.getTitle());
+                }
+            }
 
-                    item.setICreateUserName(this.sysFromRedis.getUser(item.getICreateUser()));
-                    item.setOCreateUserName(this.sysFromRedis.getUser(item.getOCreateUser()));
-                });
+            item.setICreateUserName(this.sysFromRedis.getUser(item.getICreateUser()));
+            item.setOCreateUserName(this.sysFromRedis.getUser(item.getOCreateUser()));
+        });
 
         return infos;
     }
@@ -323,12 +336,15 @@ public class WorkOrderMxServiceImpl extends ServiceImpl<WorkOrderMxMapper, WorkO
         boolean b = this.lambdaUpdate().set(WorkOrderMxEntity::getStatus, 2).eq(WorkOrderMxEntity::getId, id).update();
         if (b) {
             try {
-                CompletableFuture.allOf(
-                        CompletableFuture.runAsync(() -> this.changeProduce(mx), this.executor),
-                        CompletableFuture.runAsync(() -> this.delMxInfo(id), this.executor)
-                ).join();
+                this.changeProduce(mx);
             } catch (Exception e) {
-                throw new BusinessException("工单终止失败，任务单信息变更异常");
+                throw new BusinessException("产线完成率更新失败，请重试");
+            }
+
+            try {
+                this.delMxInfo(id);
+            } catch (Exception e) {
+                throw new BusinessException("工单信息更新失败，请重试");
             }
         }
 

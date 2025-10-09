@@ -5,6 +5,7 @@ import com.senmol.mes.plan.entity.RequisitionEntity;
 import com.senmol.mes.plan.page.RequisitionPage;
 import com.senmol.mes.plan.vo.RequisitionVo;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,6 +51,15 @@ public interface RequisitionMapper extends BaseMapper<RequisitionEntity> {
      * @return 列表
      */
     List<RequisitionEntity> getUnbound();
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_requisition WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

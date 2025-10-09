@@ -312,7 +312,6 @@ public class PlanAsyncUtil {
                     qty[0] = qty[0].add(item.getPreInventory());
                 });
 
-                // BigDecimal multiply = qty[0].multiply(cpSum);
                 BigDecimal bd = map.get(id);
                 if (ObjUtil.isNotNull(bd)) {
                     qty[0] = qty[0].add(bd);
@@ -324,7 +323,6 @@ public class PlanAsyncUtil {
                 infos.removeAll(tmp);
                 infos.add(info);
             } else {
-                // BigDecimal multiply = info.getSingleQty().multiply(cpSum);
                 BigDecimal preInventory = info.getPreInventory();
                 BigDecimal bd = map.get(id);
                 if (ObjUtil.isNotNull(bd)) {
@@ -337,66 +335,5 @@ public class PlanAsyncUtil {
 
         return ids;
     }
-
-    /**
-     * 变更产线总量
-     */
-    /*@Async
-    public void changeLineTotal(BigDecimal qty, ProduceEntity produce, char c) {
-        ProductLineEntity productLine = this.productLineService.getByProductId(produce.getProductId());
-        BigDecimal total;
-        if ('I' == c) {
-            total = productLine.getTotal().add(produce.getProductQty());
-        } else if ('D' == c) {
-            total = productLine.getTotal().subtract(produce.getProductQty());
-        } else {
-            BigDecimal subtract = productLine.getTotal().subtract(qty);
-            total = subtract.add(produce.getProductQty());
-        }
-
-        this.productLineService.lambdaUpdate()
-                .set(ProductLineEntity::getTotal, total)
-                .eq(ProductLineEntity::getId, productLine.getId())
-                .update();
-    }*/
-
-    /**
-     * MRP创建生产计划批量变更产线总量
-     */
-    /*@Async
-    public void changeLineTotalBatch(List<ProduceEntity> produces) {
-        for (ProduceEntity produce : produces) {
-            ProductLineEntity productLine = this.productLineService.getByProductId(produce.getProductId());
-            BigDecimal total = productLine.getTotal().add(produce.getProductQty());
-
-            this.productLineService.lambdaUpdate()
-                    .set(ProductLineEntity::getTotal, total)
-                    .eq(ProductLineEntity::getId, productLine.getId())
-                    .update();
-        }
-    }*/
-
-    /**
-     * MRP删除批量变更产线总量
-     */
-    /*@Async
-    public void changeLineTotalByMrpId(Long mrpId) {
-        List<MrpProduct> list = this.mrpProductService.lambdaQuery()
-                .eq(MrpProduct::getMrpId, mrpId)
-                .eq(MrpProduct::getProductMode, 0)
-                .list();
-
-        for (MrpProduct product : list) {
-            ProductLineEntity productLine = this.productLineService.getByProductId(product.getId());
-            BigDecimal total = productLine.getTotal().subtract(product.getJianYiShengChanLiang());
-
-            this.productLineService.lambdaUpdate()
-                    .set(ProductLineEntity::getTotal, total)
-                    .eq(ProductLineEntity::getId, productLine.getId())
-                    .update();
-        }
-
-        this.mrpProductService.lambdaUpdate().eq(MrpProduct::getMrpId, mrpId).remove();
-    }*/
 
 }

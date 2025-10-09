@@ -106,12 +106,11 @@
         UPDATE warehouse_retrieval_mx
             SET used_qty =
             CASE
-                qr_code
                 <foreach collection="entities" item="entity">
-                    WHEN #{entity.qrCode} THEN
-                    used_qty + #{entity.usedQty}
+                    WHEN qr_code = #{entity.qrCode} THEN used_qty + #{entity.usedQty}
                 </foreach>
-                END
+                ELSE used_qty
+            END
         WHERE
             qr_code IN (
             <foreach collection="entities" item="entity" separator=",">

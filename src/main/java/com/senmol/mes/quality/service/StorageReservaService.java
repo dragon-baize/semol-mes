@@ -34,6 +34,15 @@ public interface StorageReservaService extends IService<StorageReserva> {
     Page<StorageReservaVo> selectAll(Page<StorageReservaVo> page, StorageReserva storageReserva);
 
     /**
+     * 当天已生成的code数量
+     *
+     * @param date   日期
+     * @param source 数据来源 0-检测 1-新增 2-退货 3-过期
+     * @return 数量
+     */
+    int getTodayCount(String date, Integer source);
+
+    /**
      * 新增数据
      *
      * @param reservas 实体对象列表
@@ -63,7 +72,6 @@ public interface StorageReservaService extends IService<StorageReserva> {
      * @return 修改结果
      */
     SaResult modifyBatch(List<StorageReserva> storageReservas);
-
 
 }
 

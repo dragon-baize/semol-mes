@@ -1,14 +1,13 @@
 package com.senmol.mes.workorder.service.impl;
 
-import cn.hutool.core.lang.Dict;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.produce.vo.BomMaterialVo;
 import com.senmol.mes.workorder.entity.WorkOrderMaterial;
 import com.senmol.mes.workorder.mapper.WorkOrderMaterialMapper;
 import com.senmol.mes.workorder.service.WorkOrderMaterialService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -26,8 +25,8 @@ public class WorkOrderMaterialServiceImpl extends ServiceImpl<WorkOrderMaterialM
     }
 
     @Override
-    public List<Dict> getBaseMaterial(Long mxId, Long processId, BigDecimal count) {
-        return this.baseMapper.getBaseMaterial(mxId, processId, count);
+    public List<CountVo> getBaseMaterial(Long mxId, Long processId) {
+        return this.baseMapper.getBaseMaterial(mxId, processId);
     }
 
     @Override

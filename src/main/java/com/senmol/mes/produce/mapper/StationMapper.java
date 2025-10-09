@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.senmol.mes.produce.entity.StationEntity;
 import com.senmol.mes.produce.vo.*;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -50,6 +51,15 @@ public interface StationMapper extends BaseMapper<StationEntity> {
      * @return 工位信息
      */
     List<StationPojo> getByCode(@Param("code") String code);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM produce_station WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

@@ -9,6 +9,7 @@ import com.senmol.mes.workorder.vo.MaterialPojo;
 import com.senmol.mes.workorder.vo.ProductLineInfo;
 import com.senmol.mes.workorder.vo.WorkOrderPojo;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -101,6 +102,15 @@ public interface ProduceMapper extends BaseMapper<ProduceEntity> {
      * @return 总量
      */
     BigDecimal getAllTotal();
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_produce WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

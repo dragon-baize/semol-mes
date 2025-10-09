@@ -4,8 +4,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -25,7 +23,8 @@ import com.senmol.mes.system.utils.SysFromRedis;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Date;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -96,31 +95,42 @@ public class StorageReservaServiceImpl extends ServiceImpl<StorageReservaMapper,
     }
 
     @Override
+    public int getTodayCount(String date, Integer source) {
+        return this.baseMapper.getTodayCount(date, source);
+    }
+
+    @Override
     public SaResult insertBatch(List<StorageReserva> reservas) {
         if (CollUtil.isEmpty(reservas)) {
             return SaResult.ok();
         }
 
         Integer returnType = reservas.get(0).getReturnType();
+        long userId = StpUtil.getLoginIdAsLong();
         if (returnType == 1 || returnType == 2) {
-            Date date = new Date();
-            int count = Math.toIntExact(this.lambdaQuery()
-                    .between(StorageReserva::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
-                    .in(StorageReserva::getReturnType, 1, 2).count());
+            String date = LocalDate.now().toString();
+            int count = this.baseMapper.getTodayCount(date, 2);
+            String format = date.replace("-", "");
 
             for (int i = 0, j = reservas.size(); i < j; i++) {
                 StorageReserva reserva = reservas.get(i);
-                String type = reserva.getReturnType() == 1 ? "TH" : "TJ";
-                reserva.setCode(type + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + (count + i) * 3));
-                reserva.setDetectionWay(1);
-                reserva.setDisposal(2);
-                reserva.setTester(StpUtil.getLoginIdAsLong());
+                if (reserva.getReturnType() == 1) {
+                    reserva.setCode("TH" + format + (101 + (count + i) * 3));
+                    reserva.setDisposal(6);
+                } else {
+                    reserva.setCode("TJ" + format + (101 + (count + i) * 3));
+                    reserva.setDisposal(7);
+                    reserva.setInspectQty(reserva.getUnqualifiedQty());
+                    reserva.setUnqualifiedQty(BigDecimal.ZERO);
+                }
+
+                reserva.setTester(userId);
             }
         } else {
             for (StorageReserva reserva : reservas) {
                 reserva.setDetectionWay(1);
                 reserva.setDisposal(2);
-                reserva.setTester(StpUtil.getLoginIdAsLong());
+                reserva.setTester(userId);
             }
         }
 
@@ -142,12 +152,12 @@ public class StorageReservaServiceImpl extends ServiceImpl<StorageReservaMapper,
 
         // 送检
         if (reserva.getDisposal() == 4) {
-            Date date = new Date();
-            Long count = this.lambdaQuery().between(StorageReserva::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
+            String date = LocalDate.now().toString();
+            int count = this.inspectService.getTodayCount(date);
 
             StorageInspectEntity inspect = new StorageInspectEntity();
             inspect.setId(storageReserva.getId());
-            inspect.setCode("JC" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + storageReserva.getType() + (101 + count * 3));
+            inspect.setCode("JC" + date.replace("-", "") + storageReserva.getType() + (101 + count * 3));
             inspect.setPid(storageReserva.getPid());
             inspect.setReceiptCode(storageReserva.getReceiptCode());
             inspect.setBatchNo(storageReserva.getBatchNo());

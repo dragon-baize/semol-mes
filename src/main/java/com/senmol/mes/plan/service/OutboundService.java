@@ -3,14 +3,12 @@ package com.senmol.mes.plan.service;
 import cn.dev33.satoken.util.SaResult;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.plan.entity.OutboundEntity;
 import com.senmol.mes.plan.vo.OutboundInfo;
 import com.senmol.mes.plan.vo.OutboundVo;
 import com.senmol.mes.plan.vo.ProductQty;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * 出库单(Outbound)表服务接口
@@ -61,38 +59,12 @@ public interface OutboundService extends IService<OutboundEntity> {
     List<ProductQty> getSumQty(List<Long> productIds);
 
     /**
-     * 查询物料已出库数量
+     * 当天已生成的code数量
      *
-     * @param codes 工单编号
-     * @param ids   物料ID
-     * @return 物料已出库数量
+     * @param date 日期
+     * @return 数量
      */
-    List<CountVo> getOutBoundQty(Set<String> codes, Set<Long> ids);
-
-    /**
-     * 查询物料已出库数量
-     *
-     * @param codes      工单编号
-     * @param materialId 物料ID
-     * @return 物料已出库数量
-     */
-    List<CountVo> getObQty(Set<String> codes, Long materialId);
-
-    /**
-     * 查询物料委外出库单未出库数量
-     *
-     * @param ids 物料ID
-     * @return MRP占用库存
-     */
-    List<CountVo> getOutsourceQty(Set<Long> ids);
-
-    /**
-     * 查询物料委外出库单未出库数量
-     *
-     * @param materialId 物料ID
-     * @return MRP占用库存
-     */
-    List<CountVo> getOsQty(Long materialId);
+    int getTodayCount(String date);
 
     /**
      * 新增数据

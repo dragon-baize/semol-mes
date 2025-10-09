@@ -26,15 +26,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -63,8 +62,6 @@ public class GoodsStatusTask {
     private RetrievalMxService retrievalMxService;
     @Resource
     private StockService stockService;
-    @Resource
-    private ThreadPoolTaskExecutor executor;
 
     @Value("${storage.advent.duration:30}")
     private Integer adventDuration;
@@ -95,49 +92,42 @@ public class GoodsStatusTask {
         long userId = this.userService.lambdaQuery().eq(UserEntity::getUsername, "admin").one().getId();
         this.storageService.updateStatusByIds(storages, now, userId);
 
-        LocalDateTime beginOfDay = LocalDateTimeUtil.beginOfDay(now);
-        LocalDateTime endOfDay = LocalDateTimeUtil.endOfDay(now);
-        String format = DateUtil.format(now, DatePattern.PURE_DATE_PATTERN);
-        OutboundEntity outbound = this.createOutBound(storages, format, now, beginOfDay, endOfDay, userId);
+        String date = LocalDate.now().toString();
+        String format = date.replace("-", "");
+        OutboundEntity outbound = this.createOutBound(storages, format, now, date, userId);
 
         AtomicInteger count = new AtomicInteger(0);
-        Long total = this.retrievalService.lambdaQuery().between(RetrievalEntity::getCreateTime, beginOfDay, endOfDay).count();
-        CompletableFuture<Void> createProduct = CompletableFuture.runAsync(() -> this.createRetrieval(
-                new ArrayList<>(storages), outbound, 0, count, total, userId, now, format), this.executor)
-                .exceptionally(e -> {
-            e.printStackTrace();
+        int total = this.retrievalService.getTodayCount(date);
+        try {
+            this.createRetrieval(new ArrayList<>(storages), outbound, 0, count, total, userId, now, format);
+        } catch (Exception e) {
             throw new BusinessException("成品出库数据生成失败");
-        });
+        }
 
-        CompletableFuture<Void> createSemiProduct = CompletableFuture.runAsync(() -> this.createRetrieval(
-                new ArrayList<>(storages), outbound, 1, count, total, userId, now, format), this.executor)
-                .exceptionally(e -> {
-            e.printStackTrace();
+        try {
+            this.createRetrieval(new ArrayList<>(storages), outbound, 1, count, total, userId, now, format);
+        } catch (Exception e) {
             throw new BusinessException("半成品出库数据生成失败");
-        });
+        }
 
-        CompletableFuture<Void> createMaterial = CompletableFuture.runAsync(() -> this.createRetrieval(
-                new ArrayList<>(storages), outbound, 2, count, total, userId, now, format),this.executor)
-                .exceptionally(e -> {
-            e.printStackTrace();
+        try {
+            this.createRetrieval(new ArrayList<>(storages), outbound, 2, count, total, userId, now, format);
+        } catch (Exception e) {
             throw new BusinessException("原料出库数据生成失败");
-        });
+        }
 
-        CompletableFuture<Void> createNonMaterial = CompletableFuture.runAsync(() -> this.createRetrieval(
-                new ArrayList<>(storages), outbound, 3, count, total, userId, now, format), this.executor)
-                .exceptionally(e -> {
-            e.printStackTrace();
+        try {
+            this.createRetrieval(new ArrayList<>(storages), outbound, 3, count, total, userId, now, format);
+        } catch (Exception e) {
             throw new BusinessException("非原料出库数据生成失败");
-        });
+        }
 
-        CompletableFuture<Void> createReserva = CompletableFuture.runAsync(() -> this.createReserva(
-                new ArrayList<>(storages), outbound, userId, format, now, beginOfDay, endOfDay), this.executor)
-                .exceptionally(e -> {
-            e.printStackTrace();
+        try {
+            this.createReserva(new ArrayList<>(storages), outbound, userId, format, now, date);
+        } catch (Exception e) {
             throw new BusinessException("保留品记录生成失败");
-        });
+        }
 
-        CompletableFuture.allOf(createMaterial, createNonMaterial, createProduct, createSemiProduct, createReserva).join();
         log.info(LocalDateTime.now() + "：执行完成修改物品过期状态");
     }
 
@@ -166,14 +156,14 @@ public class GoodsStatusTask {
     /**
      * 创建出库单
      */
-    private OutboundEntity createOutBound(List<StorageEntity> storages, String format, LocalDateTime now,
-                                          LocalDateTime beginOfDay, LocalDateTime endOfDay, Long userId) {
+    private OutboundEntity createOutBound(List<StorageEntity> storages, String format, LocalDateTime now, String date,
+                                          Long userId) {
         storages.removeIf(item -> item.getStatus() != 0);
         if (CollUtil.isEmpty(storages)) {
             return null;
         }
 
-        Long count = this.outboundService.lambdaQuery().between(OutboundEntity::getCreateTime, beginOfDay, endOfDay).count();
+        int count = this.outboundService.getTodayCount(date);
         OutboundEntity outbound = new OutboundEntity();
         long id = IdUtil.getSnowflakeNextId();
         String code = "CKD" + format + (101 + count * 3);
@@ -210,8 +200,9 @@ public class GoodsStatusTask {
     /**
      * 创建出库数据
      */
-    private void createRetrieval(List<StorageEntity> storages, OutboundEntity outbound, Integer type, AtomicInteger count,
-                                 Long total, Long userId, LocalDateTime now, String format) {
+    private void createRetrieval(List<StorageEntity> storages, OutboundEntity outbound, Integer type,
+                                 AtomicInteger count,
+                                 int total, Long userId, LocalDateTime now, String format) {
         storages.removeIf(item -> item.getStatus() != 0 || !item.getType().equals(type));
         if (CollUtil.isEmpty(storages)) {
             return;
@@ -276,7 +267,7 @@ public class GoodsStatusTask {
      * 创建保留品数据
      */
     private void createReserva(List<StorageEntity> storages, OutboundEntity outbound, Long userId, String format,
-                               LocalDateTime now, LocalDateTime beginOfDay, LocalDateTime endOfDay) {
+                               LocalDateTime now, String date) {
         storages.removeIf(item -> item.getStatus() != 0);
         if (CollUtil.isEmpty(storages)) {
             return;
@@ -285,10 +276,7 @@ public class GoodsStatusTask {
         // 记录过期数据
         List<StorageReserva> reservas = new ArrayList<>(storages.size());
         StorageReserva reserva;
-
-        Long count = this.storageReservaService.lambdaQuery().eq(StorageReserva::getSource, 3)
-                .between(StorageReserva::getCreateTime, beginOfDay,endOfDay).count();
-
+        int count = this.storageReservaService.getTodayCount(date, 3);
         Long outboundId = outbound.getId();
         String code = outbound.getCode();
         for (StorageEntity storage : storages) {

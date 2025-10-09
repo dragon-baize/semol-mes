@@ -47,6 +47,7 @@ public interface WorkOrderMxService extends IService<WorkOrderMxEntity> {
      * 查询产线工单
      *
      * @param productLine 产线ID
+     * @param planId      生产计划ID
      * @return 工单列表
      */
     List<WorkOrderMxDto> getLineOrder(Long productLine, Long planId);
@@ -54,12 +55,19 @@ public interface WorkOrderMxService extends IService<WorkOrderMxEntity> {
     /**
      * 查询工单信息
      *
-     * @param code 工单单号
+     * @param code      工单单号
+     * @param stationId 工位ID
      * @return 工位信息
      */
-    StationInfo getStationInfo(String code);
+    SaResult getStationInfo(String code, Long stationId);
 
-
+    /**
+     * 查询工位物料
+     *
+     * @param code      工单编号
+     * @param stationId 工位ID
+     * @return 结果
+     */
     List<MaterialPojo> getMaterials(String code, Long stationId);
 
     /**

@@ -1,11 +1,10 @@
 package com.senmol.mes.workorder.service;
 
-import cn.hutool.core.lang.Dict;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.produce.vo.BomMaterialVo;
 import com.senmol.mes.workorder.entity.WorkOrderMaterial;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -17,14 +16,21 @@ import java.util.List;
 public interface WorkOrderMaterialService extends IService<WorkOrderMaterial> {
 
     /**
-     * 工单ID查询任务单物料工序
+     * 查询工单工位工序
+     *
+     * @param mxId 工单ID
+     * @return 结果
      */
     List<WorkOrderMaterial> getByMxId(Long mxId);
 
     /**
-     * 工序物料基础使用量
+     * 获取工单对应物料及其基础使用量
+     *
+     * @param mxId      工单ID
+     * @param processId 工序ID
+     * @return 结果
      */
-    List<Dict> getBaseMaterial(Long mxId, Long processId, BigDecimal count);
+    List<CountVo> getBaseMaterial(Long mxId, Long processId);
 
     /**
      * 批量保存

@@ -5,8 +5,6 @@ import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -37,7 +35,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -163,9 +161,9 @@ public class StationServiceImpl extends ServiceImpl<StationMapper, StationEntity
 
     @Override
     public SaResult insertStation(StationEntity station) {
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(StationEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        station.setCode("GW" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + count * 3));
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        station.setCode("GW" + date.replace("-", "") + (101 + count * 3));
 
         String md5 = SaSecureUtil.md5("123456");
         String encode = this.passwordEncoder.encode(md5);

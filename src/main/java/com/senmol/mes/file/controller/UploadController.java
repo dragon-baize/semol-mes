@@ -3,6 +3,7 @@ package com.senmol.mes.file.controller;
 import cn.dev33.satoken.util.SaResult;
 import com.senmol.mes.file.utils.UploadUtil;
 import com.senmol.mes.log.annotation.Logger;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import java.util.List;
 /**
  * @author Administrator
  */
+@Slf4j
 @RestController
 @RequestMapping("file")
 public class UploadController {
@@ -85,7 +87,7 @@ public class UploadController {
         try {
             newFileName = UploadUtil.upload(image, fileSuffix, filePath);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("图片上传失败", e);
             return SaResult.error("图片上传失败：" + e.getMessage());
         }
 
@@ -128,7 +130,7 @@ public class UploadController {
         try {
             newFileName = UploadUtil.upload(file, fileSuffix, filePath);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("文件上传失败", e);
             return SaResult.error("文件上传失败：" + e.getMessage());
         }
 
@@ -150,7 +152,7 @@ public class UploadController {
         try {
             UploadUtil.filePreviewOrDownload(uploadPath, filePath, type, response);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("文件获取失败", e);
             return SaResult.error("文件获取失败：" + e.getMessage());
         }
 

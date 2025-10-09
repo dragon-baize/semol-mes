@@ -3,8 +3,6 @@ package com.senmol.mes.plan.service.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -29,8 +27,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,7 +67,7 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
 
             return voList;
         }, this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("采购单列表查询失败", e);
             throw new BusinessException("采购单列表查询失败，请重试");
         });
 
@@ -81,7 +79,7 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
         CompletableFuture<PurchaseOrderTotal> selectTotal = CompletableFuture.supplyAsync(() ->
                         this.baseMapper.selectTotal(page.getStartTime(), page.getEndTime(), purchaseOrder),
                 this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("合计统计失败", e);
             throw new BusinessException("合计统计失败，请重试");
         });
 
@@ -115,14 +113,14 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
 
             return list;
         }, this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("收退货列表查询失败", e);
             throw new BusinessException("收退货列表查询失败，请重试");
         });
 
         CompletableFuture<RestockTotal> restockTotal = CompletableFuture.supplyAsync(() ->
                         this.baseMapper.restockTotal(page.getStartTime(), page.getEndTime(), restock),
                 this.executor).exceptionally(e -> {
-            e.printStackTrace();
+            log.error("合计统计失败", e);
             throw new BusinessException("合计统计失败，请重试");
         });
 
@@ -181,9 +179,9 @@ public class PurchaseOrderServiceImpl extends ServiceImpl<PurchaseOrderMapper, P
             return SaResult.error("物料未绑定供应商");
         }
 
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(PurchaseOrderEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        purchaseOrder.setOrderNo("CGD" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + count * 3));
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        purchaseOrder.setOrderNo("CGD" + date.replace("-", "") + (101 + count * 3));
         this.save(purchaseOrder);
 
         // 修改请购单状态

@@ -88,19 +88,15 @@
     </select>
 
     <update id="updateStorageQty">
-        UPDATE warehouse_receipt
-        SET storage_qty = storage_qty + #{qty},
-            update_time = #{now},
-            update_user = #{userId}
+        UPDATE warehouse_receipt r
+            INNER JOIN quality_storage_inspect si ON r.batch_no = si.batch_no
+                AND si.deleted = 0
+                AND si.code = #{siCode}
+        SET r.storage_qty = r.storage_qty + #{qty},
+            r.update_time = #{now},
+            r.update_user = #{userId}
         WHERE
-            batch_no = (
-                SELECT
-                    si.batch_no
-                FROM
-                    quality_storage_inspect si
-                WHERE
-                    si.code = #{siCode}
-            )
+            r.deleted = 0
     </update>
 
 </mapper>

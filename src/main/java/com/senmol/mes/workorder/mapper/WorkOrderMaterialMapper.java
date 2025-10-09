@@ -1,12 +1,11 @@
 package com.senmol.mes.workorder.mapper;
 
-import cn.hutool.core.lang.Dict;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.produce.vo.BomMaterialVo;
 import com.senmol.mes.workorder.entity.WorkOrderMaterial;
 import org.apache.ibatis.annotations.Param;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -17,11 +16,22 @@ import java.util.List;
  */
 public interface WorkOrderMaterialMapper extends BaseMapper<WorkOrderMaterial> {
 
+    /**
+     * 查询工单工位工序
+     *
+     * @param mxId 工单ID
+     * @return 结果
+     */
     List<WorkOrderMaterial> getByMxId(@Param("mxId") Long mxId);
 
-    List<Dict> getBaseMaterial(@Param("mxId") Long mxId,
-                               @Param("processId") Long processId,
-                               @Param("count") BigDecimal count);
+    /**
+     * 获取工单对应物料及其基础使用量
+     *
+     * @param mxId      工单ID
+     * @param processId 工序ID
+     * @return 结果
+     */
+    List<CountVo> getBaseMaterial(@Param("mxId") Long mxId, @Param("processId") Long processId);
 
     /**
      * 批量保存

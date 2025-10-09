@@ -438,12 +438,11 @@
         UPDATE warehouse_storage
         SET residue_qty =
             CASE
-                id
                 <foreach collection="storages" item="storage">
-                    WHEN #{storage.id} THEN
-                        GREATEST(residue_qty - #{storage.residueQty}, 0)
+                    WHEN id = #{storage.id} THEN GREATEST(residue_qty - #{storage.residueQty}, 0)
                 </foreach>
-                END,
+                ELSE residue_qty
+            END,
             update_time = #{updateTime},
             update_user = #{updateUser}
         WHERE
@@ -458,11 +457,10 @@
         UPDATE warehouse_storage
         SET residue_qty =
             CASE
-                batch_no
                 <foreach collection="storages" item="storage">
-                    WHEN #{storage.batchNo} THEN
-                        residue_qty + #{storage.residueQty}
+                    WHEN batch_no = #{storage.batchNo} THEN residue_qty + #{storage.residueQty}
                 </foreach>
+                ELSE residue_qty
             END
         WHERE
             batch_no IN (
@@ -641,17 +639,17 @@
         UPDATE warehouse_storage
         SET status =
             CASE
-                id
                 <foreach collection="entities" item="entity">
-                    WHEN #{entity.id} THEN #{entity.status}
+                    WHEN id = #{entity.id} THEN #{entity.status}
                 </foreach>
+                ELSE status
             END,
-            residue_qty =
+        residue_qty =
             CASE
-                id
-            <foreach collection="entities" item="entity">
-                WHEN #{entity.id} THEN #{entity.residueQty}
-            </foreach>
+                <foreach collection="entities" item="entity">
+                    WHEN id = #{entity.id} THEN #{entity.residueQty}
+                </foreach>
+                ELSE residue_qty
             END,
             update_time = #{updateTime},
             update_user = #{updateUser}
@@ -667,10 +665,10 @@
         UPDATE warehouse_storage
         SET invoice =
             CASE
-                id
                 <foreach collection="storageIds" item="storageId">
-                    WHEN #{storageId} THEN #{invoice}
+                    WHEN id = #{storageId} THEN #{invoice}
                 </foreach>
+                ELSE invoice
             END
         WHERE
             id IN (

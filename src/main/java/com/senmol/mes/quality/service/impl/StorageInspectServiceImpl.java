@@ -3,8 +3,6 @@ package com.senmol.mes.quality.service.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -22,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -54,6 +52,11 @@ public class StorageInspectServiceImpl extends ServiceImpl<StorageInspectMapper,
     }
 
     @Override
+    public int getTodayCount(String date) {
+        return this.baseMapper.getTodayCount(date);
+    }
+
+    @Override
     public SaResult insertStorageInspect(StorageInspectEntity storageInspect) {
         if (storageInspect.getSource() == 1) {
             BigDecimal zero = new BigDecimal(0);
@@ -63,9 +66,9 @@ public class StorageInspectServiceImpl extends ServiceImpl<StorageInspectMapper,
         }
 
         if (ObjectUtil.isNull(storageInspect.getCode())) {
-            Date date = new Date();
-            Long count = this.lambdaQuery().between(StorageInspectEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-            storageInspect.setCode("JC" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + storageInspect.getType() + (101 + count * 3));
+            String date = LocalDate.now().toString();
+            int count = this.baseMapper.getTodayCount(date);
+            storageInspect.setCode("JC" + date.replace("-", "") + storageInspect.getType() + (101 + count * 3));
         } else {
             storageInspect.setTester(StpUtil.getLoginIdAsLong());
             storageInspect.setStatus(1);

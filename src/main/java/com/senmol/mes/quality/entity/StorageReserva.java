@@ -139,6 +139,11 @@ public class StorageReserva extends Model<StorageReserva> {
     @TableField("return_type")
     private Integer returnType;
     /**
+     * 原单价
+     */
+    @TableField("original_price")
+    private BigDecimal originalPrice;
+    /**
      * 单价
      */
     @TableField("price")

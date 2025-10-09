@@ -110,6 +110,11 @@
                   #{mx.pid}
               </foreach>
             )
+          AND outboundId IN (
+                <foreach collection="mxs" item="mx" separator=",">
+                    #{mx.outboundId}
+                </foreach>
+            )
     </select>
 
 </mapper>

@@ -88,10 +88,10 @@
         UPDATE plan_purchase_returns
         SET invoice =
             CASE
-                id
                 <foreach collection="returnsIds" item="returnsId">
-                    WHEN #{returnsId} THEN #{invoice}
+                    WHEN id = #{returnsId} THEN #{invoice}
                 </foreach>
+                ELSE invoice
             END
         WHERE
             id IN (
@@ -99,6 +99,7 @@
                 #{returnsId}
             </foreach>
         )
+          AND deleted = 0
     </update>
 
 </mapper>

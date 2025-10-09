@@ -23,14 +23,14 @@ public interface SaleOrderProductMapper extends BaseMapper<SaleOrderProductEntit
      * @param entities 产品信息
      */
     void modifyBatchById(@Param("entities") List<SaleOrderProductEntity> entities,
-                         @Param("saleOrderCode") String saleOrderCode);
+                         @Param("saleOrderId") Long saleOrderId);
 
     /**
      * 批量修改
      *
      * @param map 产品信息
      */
-    void modifyBatchById2(@Param("map") Map<Long, BigDecimal> map, @Param("saleOrderCode") String saleOrderCode);
+    void modifyBatchById2(@Param("map") Map<Long, BigDecimal> map, @Param("saleOrderId") Long saleOrderId);
 
     /**
      * 获取产品销售订单总量

@@ -5,7 +5,6 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.ObjUtil;
 import com.senmol.mes.common.enums.RedisKeyEnum;
-import com.senmol.mes.common.exception.BusinessException;
 import com.senmol.mes.common.redis.RedisService;
 import com.senmol.mes.common.utils.CountVo;
 import com.senmol.mes.plan.entity.OutsourceEntity;
@@ -15,27 +14,20 @@ import com.senmol.mes.plan.service.OutsourceService;
 import com.senmol.mes.plan.service.ProduceService;
 import com.senmol.mes.produce.utils.ProFromRedis;
 import com.senmol.mes.produce.vo.ProductVo;
-import com.senmol.mes.workorder.entity.WorkOrderMxEntity;
-import com.senmol.mes.workorder.entity.WorkOrderMxProcess;
-import com.senmol.mes.workorder.service.WorkOrderMxBadModeService;
 import com.senmol.mes.workorder.service.WorkOrderMxProcessService;
-import com.senmol.mes.workorder.service.WorkOrderMxProcessUserService;
 import com.senmol.mes.workorder.service.WorkOrderMxService;
 import com.senmol.mes.workorder.vo.MaterialPojo;
 import com.senmol.mes.workorder.vo.WorkOrderPojo;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -48,45 +40,17 @@ public class WorkOrderAsyncUtil {
     @Resource
     private RedisService redisService;
     @Resource
-    private ProduceService produceService;
-    @Resource
     private WorkOrderMxService workOrderMxService;
     @Resource
-    private WorkOrderMxBadModeService workOrderMxBadModeService;
-    @Resource
     private WorkOrderMxProcessService workOrderMxProcessService;
-    @Resource
-    private WorkOrderMxProcessUserService workOrderMxProcessUserService;
     @Resource
     private OutsourceService outsourceService;
     @Resource
     private OutboundMxService outboundMxService;
     @Resource
     private ProFromRedis proFromRedis;
-
-    @Async
-    @Transactional(rollbackFor = BusinessException.class)
-    public CompletableFuture<Future<Void>> updateOrderPlan(Long mxId) {
-        // 更新工单开工时间
-        this.workOrderMxService.lambdaUpdate()
-                .set(WorkOrderMxEntity::getBeginTime, LocalDateTime.now())
-                .eq(WorkOrderMxEntity::getId, mxId)
-                .update();
-
-        // 更新计划状态为生产中
-        WorkOrderPojo workOrder = this.getPlanId(mxId);
-        if (BeanUtil.isNotEmpty(workOrder) && workOrder.getExist() == 0) {
-            this.produceService.lambdaUpdate()
-                    .set(ProduceEntity::getStatus, 1)
-                    .eq(ProduceEntity::getId, workOrder.getId())
-                    .update();
-
-            workOrder.setExist(1);
-            this.redisService.set(RedisKeyEnum.PLAN_PRODUCE_ID.getKey() + mxId, workOrder);
-        }
-
-        return CompletableFuture.completedFuture(null);
-    }
+    @Resource
+    private ProduceService produceService;
 
     public void resetPlan(Long mxId) {
         WorkOrderPojo workOrder = this.getPlanId(mxId);
@@ -105,35 +69,7 @@ public class WorkOrderAsyncUtil {
         this.redisService.del(RedisKeyEnum.PLAN_PRODUCE_ID.getKey() + mxId);
     }
 
-    @Async
-    public CompletableFuture<Future<Void>> updateWorkOrderMx(int indexOf, int size, WorkOrderMxProcess process) {
-        // 最后一道工序更新工单数据
-        if (indexOf == size - 1) {
-            this.workOrderMxService.lambdaUpdate()
-                    .set(WorkOrderMxEntity::getEndTime, LocalDateTime.now())
-                    .set(WorkOrderMxEntity::getFinish, 1)
-                    .set(WorkOrderMxEntity::getNonDefective, process.getNonDefective().add(process.getRework()))
-                    .set(WorkOrderMxEntity::getDefective, process.getDefective())
-                    .set(WorkOrderMxEntity::getYield, process.getYield())
-                    .set(WorkOrderMxEntity::getUpdateTime, process.getUpdateTime())
-                    .eq(WorkOrderMxEntity::getId, process.getMxId())
-                    .update();
-
-            this.redisService.del(RedisKeyEnum.PLAN_PRODUCE_ID.getKey() + process.getMxId());
-        } else {
-            this.workOrderMxService.lambdaUpdate()
-                    .set(WorkOrderMxEntity::getNonDefective, process.getNonDefective().add(process.getRework()))
-                    .set(WorkOrderMxEntity::getDefective, process.getDefective())
-                    .set(WorkOrderMxEntity::getYield, process.getYield())
-                    .set(WorkOrderMxEntity::getUpdateTime, process.getUpdateTime())
-                    .eq(WorkOrderMxEntity::getId, process.getMxId())
-                    .update();
-        }
-
-        return CompletableFuture.completedFuture(null);
-    }
-
-    private WorkOrderPojo getPlanId(Long mxId) {
+    public WorkOrderPojo getPlanId(Long mxId) {
         Object object = this.redisService.get(RedisKeyEnum.PLAN_PRODUCE_ID.getKey() + mxId);
         if (ObjUtil.isNotNull(object)) {
             return Convert.convert(WorkOrderPojo.class, object);

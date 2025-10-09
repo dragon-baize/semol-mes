@@ -30,7 +30,7 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, ManageU
     @Override
     public SaResult updateManageUser(ManageUser manageUser) {
         if (ObjectUtil.isNotNull(manageUser.getRemarks())) {
-            String remarks = manageUser.getRemarks().replaceAll("_", "-");
+            String remarks = manageUser.getRemarks().replace("_", "-");
             manageUser.setRemarks(remarks);
         }
 

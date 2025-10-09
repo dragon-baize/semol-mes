@@ -95,7 +95,7 @@ public class SaleInvoiceServiceImpl extends ServiceImpl<SaleInvoiceMapper, SaleI
 
                     return list;
                 }, this.executor).exceptionally(e -> {
-                    e.printStackTrace();
+                    log.error("采购开票列表查询失败", e);
                     throw new BusinessException("采购开票列表查询失败，请重试");
                 });
 
@@ -108,7 +108,7 @@ public class SaleInvoiceServiceImpl extends ServiceImpl<SaleInvoiceMapper, SaleI
                 CompletableFuture.supplyAsync(() -> this.baseMapper.selectTotal(page.getStartTime(),
                                 page.getEndTime(), saleInvoiceVo), this.executor)
                         .exceptionally(e -> {
-                            e.printStackTrace();
+                            log.error("合计统计失败", e);
                             throw new BusinessException("合计统计失败，请重试");
                         });
 

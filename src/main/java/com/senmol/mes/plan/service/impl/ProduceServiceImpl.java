@@ -1,8 +1,6 @@
 package com.senmol.mes.plan.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -174,9 +172,9 @@ public class ProduceServiceImpl extends ServiceImpl<ProduceMapper, ProduceEntity
         // 删除生产数量为0的数据
         produces.removeIf(item -> item.getProductQty().compareTo(BigDecimal.ZERO) < 1);
 
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(ProduceEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        String format = date.replace("-", "");
         for (int i = 0, j = produces.size(); i < j; i++) {
             ProduceEntity produce = produces.get(i);
             produce.setCode("SC" + format + (101 + (count + i) * 3));

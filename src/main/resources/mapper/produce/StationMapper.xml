@@ -59,13 +59,10 @@
         SELECT
             s.id,
             s.code,
-            s.title,
-            p.id AS pid,
-            p.title AS pTitle
+            s.title
         FROM
-                produce_station s
+            produce_station s
                 LEFT JOIN produce_station_user su ON s.id = su.station_id
-                LEFT JOIN produce_process p ON su.station_id = p.station_id
         WHERE
             s.deleted = 0
             AND s.product_line_id = #{productLineId}

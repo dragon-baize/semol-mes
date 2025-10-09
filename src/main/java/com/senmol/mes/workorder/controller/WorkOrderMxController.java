@@ -77,12 +77,13 @@ public class WorkOrderMxController {
     /**
      * 查询工单信息
      *
-     * @param code 工单单号
+     * @param code      工单单号
+     * @param stationId 工位ID
      * @return 工位信息
      */
     @GetMapping("getStationInfo")
-    public SaResult getStationInfo(@RequestParam String code) {
-        return SaResult.data(this.workOrderMxService.getStationInfo(code));
+    public SaResult getStationInfo(@RequestParam("code") String code, @RequestParam("stationId") Long stationId) {
+        return this.workOrderMxService.getStationInfo(code, stationId);
     }
 
     /**

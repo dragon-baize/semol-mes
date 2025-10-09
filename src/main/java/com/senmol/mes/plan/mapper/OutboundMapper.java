@@ -8,6 +8,7 @@ import com.senmol.mes.plan.entity.OutboundMxEntity;
 import com.senmol.mes.plan.vo.OutboundVo;
 import com.senmol.mes.plan.vo.ProductQty;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 import java.util.Set;
@@ -86,6 +87,15 @@ public interface OutboundMapper extends BaseMapper<OutboundEntity> {
      * @return 影响行数
      */
     int saveOutbound(@Param("entity") OutboundEntity entity);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_outbound WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

@@ -29,6 +29,7 @@
             r.custom_id,
             r.amount,
             r.return_type,
+            r.original_price,
             r.price,
             r.create_time,
             r.create_user,
@@ -87,6 +88,17 @@
             AND r.return_type = #{sr.returnType}
         </if>
         ORDER BY r.create_time DESC
+    </select>
+
+    <select id="getTodayCount" resultType="int">
+        SELECT
+            count(*)
+        FROM
+            quality_storage_reserva
+        WHERE
+            source = #{source}
+          AND DATE(create_time) = #{date}
+        FOR UPDATE
     </select>
 
     <insert id="saveReservaBatch">

@@ -4,8 +4,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -33,6 +31,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -165,23 +164,8 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
     }
 
     @Override
-    public List<CountVo> getOutBoundQty(Set<String> codes, Set<Long> ids) {
-        return this.baseMapper.getOutBoundQty(codes, ids);
-    }
-
-    @Override
-    public List<CountVo> getObQty(Set<String> codes, Long materialId) {
-        return this.baseMapper.getObQty(codes, materialId);
-    }
-
-    @Override
-    public List<CountVo> getOutsourceQty(Set<Long> ids) {
-        return this.baseMapper.getOutsourceQty(ids);
-    }
-
-    @Override
-    public List<CountVo> getOsQty(Long materialId) {
-        return this.baseMapper.getOsQty(materialId);
+    public int getTodayCount(String date) {
+        return this.baseMapper.getTodayCount(date);
     }
 
     @Override
@@ -195,14 +179,10 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
             }
         }
 
-        Date date = new Date();
-        DateTime beginOfDay = DateUtil.beginOfDay(date);
-        DateTime endOfDay = DateUtil.endOfDay(date);
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
-
-        Long count = this.lambdaQuery().between(OutboundEntity::getCreateTime, beginOfDay, endOfDay).count();
-        outboundVo.setCode("CKD" + format + (101 + count * 3));
         OutboundEntity outbound = Convert.convert(OutboundEntity.class, outboundVo);
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        outbound.setCode("CKD" + date.replace("-", "") + (101 + count * 3));
         boolean b = this.save(outbound);
         if (b) {
             // 委外出库只能创建一次出库单
@@ -227,9 +207,8 @@ public class OutboundServiceImpl extends ServiceImpl<OutboundMapper, OutboundEnt
     public SaResult insertInvoice(OutboundInfo outbound) {
         OutboundEntity entity = Convert.convert(OutboundEntity.class, outbound);
 
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(OutboundEntity::getCreateTime, DateUtil.beginOfDay(date),
-                DateUtil.endOfDay(date)).count();
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
         entity.setCode("XS-" + DateUtil.format(new Date(), "yyyy-MMdd-") + ++count);
         entity.setType(10);
         entity.setOrderNo(entity.getOrderNo());

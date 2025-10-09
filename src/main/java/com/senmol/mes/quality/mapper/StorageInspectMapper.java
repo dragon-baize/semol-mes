@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.senmol.mes.quality.entity.StorageInspectEntity;
 import com.senmol.mes.quality.vo.StorageInspectVo;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -24,5 +25,15 @@ public interface StorageInspectMapper extends BaseMapper<StorageInspectEntity> {
      */
     List<StorageInspectVo> selectAll(Page<StorageInspectVo> page,
                                      @Param("se") StorageInspectEntity storageInspect);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM quality_storage_inspect WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
+
 }
 

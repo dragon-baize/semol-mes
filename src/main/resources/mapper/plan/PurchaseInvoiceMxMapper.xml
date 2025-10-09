@@ -6,9 +6,8 @@
         UPDATE plan_purchase_invoice_mx
         SET qty =
             CASE
-                mx_id
                 <foreach collection="entities" item="entity">
-                    WHEN #{entity.mxId} THEN #{entity.qty}
+                    WHEN mx_id = #{entity.mxId} THEN #{entity.qty}
                 </foreach>
                 ELSE qty
             END,

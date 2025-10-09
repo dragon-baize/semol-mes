@@ -1,8 +1,6 @@
 package com.senmol.mes.plan.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
@@ -31,8 +29,8 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -135,9 +133,9 @@ public class OutsourceServiceImpl extends ServiceImpl<OutsourceMapper, Outsource
             outsource.setTaxPrice(supplierGoods.getTaxPrice());
         }
 
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(OutsourceEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        outsource.setCode("WW" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + count * 3));
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        outsource.setCode("WW" + date.replace("-", "") + (101 + count * 3));
         this.save(outsource);
 
         // 保存mrp-produce数据
@@ -167,17 +165,15 @@ public class OutsourceServiceImpl extends ServiceImpl<OutsourceMapper, Outsource
                 .eq(SupplierGoods::getType, 1)
                 .list();
 
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(OutsourceEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        String format = date.replace("-", "");
         for (int i = 0, j = outsources.size(); i < j; i++) {
             OutsourceEntity outsource = outsources.get(i);
             outsource.setCode("WW" + format + (101 + (count + i) * 3));
 
-            supplierGoods.stream()
-                    .filter(item -> item.getGoodsId().equals(outsource.getProductId()))
-                    .findFirst()
-                    .ifPresent(p -> {
+            supplierGoods.stream().filter(item -> item.getGoodsId().equals(outsource.getProductId()))
+                    .findFirst().ifPresent(p -> {
                         outsource.setSupplierId(p.getPid());
                         outsource.setPrice(p.getPrice());
                         outsource.setTaxRate(p.getTaxRate());

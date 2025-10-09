@@ -2,8 +2,6 @@ package com.senmol.mes.workorder.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.senmol.mes.common.enums.ResultEnum;
@@ -33,12 +31,14 @@ import com.senmol.mes.workorder.vo.MaterialPojo;
 import com.senmol.mes.workorder.vo.OrderInfo;
 import com.senmol.mes.workorder.vo.OrderMaterial;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -76,8 +76,6 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
     private WorkOrderMaterialService workOrderMaterialService;
     @Resource
     private StorageService storageService;
-    @Resource
-    private ThreadPoolTaskExecutor executor;
 
     @Override
     public List<WorkOrderMxMaterialEntity> getByMxId(Long workOrderMxId) {
@@ -132,13 +130,15 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
         if (ObjUtil.isNull(mxId)) {
             list = this.convertBomMaterial(productId);
         } else {
-            List<WorkOrderMxMaterialEntity> mxMaterials = this.workOrderMxMaterialService.lambdaQuery()
-                    .eq(WorkOrderMxMaterialEntity::getMxId, mxId)
-                    .list();
-
-            if (mxMaterials.isEmpty()) {
+            // 已打印的工单无需查清单
+            Long count = this.workOrderMxService.lambdaQuery().eq(WorkOrderMxEntity::getId, mxId)
+                    .eq(WorkOrderMxEntity::getStatus, 1).count();
+            if (count > 0L) {
                 list = this.convertBomMaterial(productId);
             } else {
+                List<WorkOrderMxMaterialEntity> mxMaterials = this.workOrderMxMaterialService.lambdaQuery()
+                        .eq(WorkOrderMxMaterialEntity::getMxId, mxId).list();
+
                 list = this.convertOrderMaterial(mxMaterials);
             }
         }
@@ -289,12 +289,15 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
             Long pid = workOrderMx.getPid();
 
             try {
-                CompletableFuture.allOf(
-                        CompletableFuture.runAsync(() -> this.createWorkOrderMaterial(mxId, pid), this.executor),
-                        CompletableFuture.runAsync(() -> this.changeProduce(workOrderMx.getIsFree(), mxId, pid), this.executor)
-                ).join();
+                this.createWorkOrderMaterial(mxId, pid);
             } catch (Exception e) {
-                throw new BusinessException(e.getMessage());
+                throw new BusinessException("工单物料保存失败，请重试");
+            }
+
+            try {
+                this.changeProduce(workOrderMx.getIsFree(), mxId, pid);
+            } catch (Exception e) {
+                throw new BusinessException("生成计划更新失败，请重试");
             }
         }
 
@@ -347,10 +350,8 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
     private void createWorkOrderMaterial(Long mxId, Long pid) {
         Long count = this.workOrderMaterialService.lambdaQuery().eq(WorkOrderMaterial::getMxId, mxId).count();
         if (count == 0L) {
-            ProduceEntity produce = this.produceService.lambdaQuery()
-                    .eq(ProduceEntity::getId, pid)
-                    .last(CheckToolUtil.LIMIT)
-                    .one();
+            ProduceEntity produce = this.produceService.lambdaQuery().eq(ProduceEntity::getId, pid)
+                    .last(CheckToolUtil.LIMIT).one();
 
             BomVo bom = this.proFromRedis.getBom(produce.getProductId());
             if (bom == null) {
@@ -366,7 +367,7 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
 
             int row = this.workOrderMaterialService.insertBatch(mxId, materialVos);
             if (row == 0) {
-                throw new BusinessException("清单物料获取失败，请重试");
+                throw new BusinessException("工单物料保存失败，请重试");
             }
         }
     }
@@ -374,12 +375,9 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
     private void changeProduce(Integer free, Long mxId, Long pid) {
         if (free == 0) {
             // 生成工单编号
-            Date date = new Date();
-            Long total = this.workOrderMxService.lambdaQuery().eq(WorkOrderMxEntity::getIsFree, 1)
-                    .between(WorkOrderMxEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date))
-                    .count();
-            String code = "ZGD" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + String.format("%03d", ++total);
-
+            String date = LocalDate.now().toString();
+            int total = this.baseMapper.getTodayCount(date);
+            String code = "ZGD" + date.replace("-", "") + String.format("%03d", ++total);
             this.workOrderMxService.lambdaUpdate().set(WorkOrderMxEntity::getCode, code)
                     .set(WorkOrderMxEntity::getIsFree, 1).eq(WorkOrderMxEntity::getId, mxId).update();
 
@@ -387,7 +385,6 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
                     .list();
 
             long count = list.stream().filter(item -> item.getIsFree() == 1).count();
-
             int size = list.size();
             int isFree = 0;
             if (count == size) {
@@ -396,12 +393,10 @@ public class WorkOrderMxMaterialServiceImpl extends ServiceImpl<WorkOrderMxMater
                 isFree = 2;
             }
 
-            boolean b = this.produceService.lambdaUpdate()
-                    .set(ProduceEntity::getIsFree, isFree)
-                    .eq(ProduceEntity::getId, pid)
-                    .update();
+            boolean b = this.produceService.lambdaUpdate().set(ProduceEntity::getIsFree, isFree)
+                    .eq(ProduceEntity::getId, pid).update();
             if (!b) {
-                throw new BusinessException("任务单释放状态变更失败，请重试");
+                throw new BusinessException("生产计划更新失败，请重试");
             }
         }
     }

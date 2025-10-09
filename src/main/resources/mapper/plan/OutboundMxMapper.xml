@@ -119,11 +119,10 @@
         UPDATE plan_outbound_mx
         SET act_qty =
             CASE
-                goods_id
                 <foreach collection="mxVos" item="mxVo">
-                WHEN #{mxVo.bId} THEN
-                    #{mxVo.qty}
+                WHEN goods_id = #{mxVo.bId} THEN #{mxVo.qty}
                 </foreach>
+                ELSE act_qty
             END
         WHERE
             outbound_id IN (

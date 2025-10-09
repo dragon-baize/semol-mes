@@ -5,22 +5,20 @@ import cn.hutool.core.convert.Convert;
 import com.senmol.mes.common.enums.RedisKeyEnum;
 import com.senmol.mes.common.redis.RedisService;
 import com.senmol.mes.produce.entity.*;
-import com.senmol.mes.produce.service.*;
+import com.senmol.mes.produce.service.ProcessService;
+import com.senmol.mes.produce.service.StationBadModeService;
+import com.senmol.mes.produce.service.StationUserService;
 import com.senmol.mes.produce.vo.*;
 import com.senmol.mes.quality.entity.BadModeEntity;
 import com.senmol.mes.quality.vo.BadModeVo;
-import com.senmol.mes.workorder.entity.WorkOrderMxProcess;
-import com.senmol.mes.workorder.service.WorkOrderMxService;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Administrator
@@ -37,10 +35,6 @@ public class ProAsyncUtil {
     private StationUserService stationUserService;
     @Resource
     private ProcessService processService;
-    @Resource
-    private ProductLineService productLineService;
-    @Resource
-    private WorkOrderMxService workOrderMxService;
 
     /**
      * 变更产线
@@ -207,6 +201,7 @@ public class ProAsyncUtil {
      * 删除工艺
      */
     @Async
+    @Transactional(rollbackFor = Exception.class)
     public void delWorkmanship(List<WorkmanshipMx> list, Long id) {
         // 删除工艺-工序表数据
         List<ProcessEntity> processes =
@@ -230,47 +225,6 @@ public class ProAsyncUtil {
         BadModeVo badModeVo = Convert.convert(BadModeVo.class, badMode);
         this.redisService.set(RedisKeyEnum.QUALITY_BAD_MODE.getKey() + badModeVo.getId(), badModeVo,
                 RedisKeyEnum.QUALITY_BAD_MODE.getTimeout());
-    }
-
-    /**
-     * 变更产线完成率
-     */
-    @Async
-    public CompletableFuture<Void> changeLine(Long mxId, int indexOf, List<WorkOrderMxProcess> list, BigDecimal qty) {
-        // 获取产线数据
-        ProductLineEntity productLine = this.workOrderMxService.getLineInfo(mxId);
-        // 总数
-        BigDecimal total = productLine.getTotal();
-        BigDecimal rate;
-
-        // 当前工序
-        BigDecimal current = new BigDecimal(indexOf + 1);
-        // 总工序
-        BigDecimal all = new BigDecimal(list.size());
-        // 新工单报工
-        if (indexOf == 0) {
-            BigDecimal h = current.divide(all, 4, RoundingMode.HALF_UP);
-            BigDecimal multiply = qty.divide(total, 4, RoundingMode.HALF_UP).multiply(h).setScale(4, RoundingMode.HALF_UP);
-            rate = productLine.getRate().add(multiply);
-        } else {
-            // 已存在工单的报工
-            rate = productLine.getRate();
-            // 上次工序数量
-            WorkOrderMxProcess mxProcess = list.get(indexOf - 1);
-            BigDecimal lastS = mxProcess.getNonDefective().add(mxProcess.getRework());
-
-            BigDecimal last = new BigDecimal(indexOf).multiply(lastS);
-            BigDecimal multiply = total.multiply(all);
-            BigDecimal divide = current.multiply(qty).subtract(last).divide(multiply, 4, RoundingMode.HALF_UP);
-            rate = rate.add(divide);
-        }
-
-        this.productLineService.lambdaUpdate()
-                .set(ProductLineEntity::getRate, rate)
-                .eq(ProductLineEntity::getId, productLine.getId())
-                .update();
-
-        return CompletableFuture.completedFuture(null);
     }
 
 }

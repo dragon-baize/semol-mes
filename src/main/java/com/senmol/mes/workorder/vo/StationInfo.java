@@ -1,5 +1,6 @@
 package com.senmol.mes.workorder.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -26,6 +27,11 @@ public class StationInfo implements Serializable {
      */
     private BigDecimal qty;
     /**
+     * 上个工序的良品数
+     */
+    @JsonIgnore
+    private BigDecimal nonDefective;
+    /**
      * 开工时间
      */
     private LocalDateTime beginTime;
@@ -37,5 +43,13 @@ public class StationInfo implements Serializable {
      * 产品编号
      */
     private String productCode;
+    /**
+     * 工序ID
+     */
+    private Long processId;
+    /**
+     * 工序名称
+     */
+    private String processTitle;
 
 }

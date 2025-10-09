@@ -6,31 +6,30 @@
         UPDATE warehouse_stock
         SET qty =
             CASE
-                id
                 <foreach collection="stocks" item="stock">
-                WHEN #{stock.id} THEN
-                    GREATEST(qty - #{stock.qty}, 0)
+                    WHEN id = #{stock.id} THEN GREATEST(qty - #{stock.qty}, 0)
                 </foreach>
-                END,
+                ELSE qty
+            END,
             update_time = #{updateTime},
             update_user = #{updateUser}
         WHERE
             id IN (
-        <foreach collection="stocks" item="stock" separator=",">
-            #{stock.id}
-        </foreach>
-                )
+            <foreach collection="stocks" item="stock" separator=",">
+                #{stock.id}
+            </foreach>
+        )
+          AND deleted = 0
     </update>
 
     <update id="addModifyBatch">
         UPDATE warehouse_stock
         SET qty =
             CASE
-                id
                 <foreach collection="stocks" item="stock">
-                    WHEN #{stock.id} THEN
-                    qty + #{stock.qty}
+                    WHEN id = #{stock.id} THEN qty + #{stock.qty}
                 </foreach>
+                ELSE qty
             END,
             update_time = #{updateTime},
             update_user = #{updateUser}
@@ -40,6 +39,7 @@
                     #{stock.id}
                 </foreach>
             )
+          AND deleted = 0
     </update>
 
 </mapper>

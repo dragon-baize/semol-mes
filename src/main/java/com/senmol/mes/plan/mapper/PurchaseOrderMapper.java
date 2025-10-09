@@ -9,6 +9,7 @@ import com.senmol.mes.plan.vo.PurchaseOrderVo;
 import com.senmol.mes.plan.vo.Restock;
 import com.senmol.mes.plan.vo.RestockTotal;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -68,6 +69,15 @@ public interface PurchaseOrderMapper extends BaseMapper<PurchaseOrderEntity> {
      * @return 合计
      */
     RestockTotal restockTotal(@Param("startTime") LocalDate startTime, @Param("endTime") LocalDate endTime, @Param("args") Restock restock);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_purchase_order WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

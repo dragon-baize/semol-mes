@@ -3,15 +3,17 @@ package com.senmol.mes.warehouse.service.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.senmol.mes.common.enums.ResultEnum;
 import com.senmol.mes.common.exception.BusinessException;
 import com.senmol.mes.warehouse.entity.MoveRecord;
+import com.senmol.mes.warehouse.entity.StockEntity;
 import com.senmol.mes.warehouse.entity.StorageEntity;
 import com.senmol.mes.warehouse.mapper.MoveRecordMapper;
 import com.senmol.mes.warehouse.service.MoveRecordService;
+import com.senmol.mes.warehouse.service.StockService;
 import com.senmol.mes.warehouse.service.StorageService;
-import com.senmol.mes.warehouse.utils.WarAsyncUtil;
 import com.senmol.mes.warehouse.vo.MoveVo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +22,6 @@ import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -35,7 +36,7 @@ public class MoveRecordServiceImpl extends ServiceImpl<MoveRecordMapper, MoveRec
     @Resource
     private StorageService storageService;
     @Resource
-    private WarAsyncUtil warAsyncUtil;
+    private StockService stockService;
 
     @Override
     @Transactional(rollbackFor = RuntimeException.class)
@@ -83,29 +84,113 @@ public class MoveRecordServiceImpl extends ServiceImpl<MoveRecordMapper, MoveRec
             LocalDateTime now = LocalDateTime.now();
             long userId = StpUtil.getLoginIdAsLong();
 
-            CompletableFuture<Void> updateStorage = this.warAsyncUtil.updateStorage(storages, now, userId).exceptionally(e -> {
-                e.printStackTrace();
-                throw new BusinessException("库存剩余量变更失败");
-            });
+            // 变更入库记录
+            this.storageService.modifyBatch(storages, now, userId);
 
-            CompletableFuture<Void> saveStorage = this.warAsyncUtil.saveStorage(storages, moveVos, now, userId).exceptionally(e -> {
-                e.printStackTrace();
+            try {
+                this.saveStorage(storages, moveVos, now, userId);
+            } catch (Exception e) {
+                log.error("入库记录保存失败", e);
                 throw new BusinessException("入库记录保存失败");
-            });
-            CompletableFuture<Void> subStock = this.warAsyncUtil.subStock(storages, moveVos, now, userId).exceptionally(e -> {
-                e.printStackTrace();
+            }
+
+            try {
+                this.subStock(storages, moveVos, now, userId);
+            } catch (Exception e) {
+                log.error("库存量扣减失败", e);
                 throw new BusinessException("库存量扣减失败");
-            });
+            }
 
-            CompletableFuture<Void> addStock = this.warAsyncUtil.addStock(moveVos, now, userId).exceptionally(e -> {
-                e.printStackTrace();
-                throw new BusinessException("库存量新增失败");
-            });
-
-            CompletableFuture.allOf(updateStorage, saveStorage, subStock, addStock).join();
+            try {
+                this.addStock(moveVos, now, userId);
+            } catch (Exception e) {
+                log.error("库存量新增失败", e);
+                throw new BusinessException(e);
+            }
         }
 
         return SaResult.ok(ResultEnum.INSERT_SUCCESS.getMsg());
+    }
+
+    /**
+     * 新增入库记录
+     */
+    private void saveStorage(List<StorageEntity> storages, List<MoveVo> moveVos, LocalDateTime now, Long userId) {
+        List<StorageEntity> entities = new ArrayList<>(storages.size());
+        for (StorageEntity storage : storages) {
+            MoveVo moveVo = moveVos.stream()
+                    .filter(item -> item.getId().equals(storage.getId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (moveVo != null) {
+                storage.setResidueQty(moveVo.getRQty());
+                entities.add(this.setValue(moveVo, storage, now, userId));
+            }
+        }
+
+        this.storageService.insertBatch(entities);
+    }
+
+    /**
+     * 批量减库存量
+     */
+    private void subStock(List<StorageEntity> storages, List<MoveVo> moveVos, LocalDateTime now, Long userId) {
+        List<StockEntity> subStocks = new ArrayList<>(storages.size());
+        StockEntity subStock;
+        for (StorageEntity storage : storages) {
+            MoveVo moveVo = moveVos.stream()
+                    .filter(item -> item.getId().equals(storage.getId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (moveVo != null) {
+                subStock = new StockEntity();
+                subStock.setId(storage.getStockId());
+                subStock.setQty(moveVo.getRQty());
+                subStocks.add(subStock);
+            }
+        }
+
+        this.stockService.subModifyBatch(subStocks, now, userId);
+    }
+
+    /**
+     * 批量加库存量
+     */
+    private void addStock(List<MoveVo> moveVos, LocalDateTime now, Long userId) {
+        List<StockEntity> addStocks = new ArrayList<>(moveVos.size());
+        StockEntity addStock;
+        for (MoveVo moveVo : moveVos) {
+            addStock = new StockEntity();
+            addStock.setId(moveVo.getRStockId());
+            addStock.setQty(moveVo.getRQty());
+            addStocks.add(addStock);
+        }
+
+        this.stockService.addModifyBatch(addStocks, now, userId);
+    }
+
+    private StorageEntity setValue(MoveVo moveVo, StorageEntity storage, LocalDateTime now, Long userId) {
+        StorageEntity entity = new StorageEntity();
+        entity.setId(IdUtil.getSnowflake().nextId());
+        entity.setBatchNo(moveVo.getRBatchNo());
+        entity.setSiCode(storage.getSiCode());
+        entity.setGoodsId(storage.getGoodsId());
+        entity.setType(storage.getType());
+        entity.setQty(moveVo.getRQty());
+        entity.setResidueQty(moveVo.getRQty());
+        entity.setStatus(storage.getStatus());
+        entity.setLifeType(storage.getLifeType());
+        entity.setLifeInfo(storage.getLifeInfo());
+        entity.setStockId(moveVo.getRStockId());
+        entity.setRemarks(moveVo.getRRemarks());
+        entity.setSource(3);
+        entity.setCreateTime(storage.getCreateTime());
+        entity.setCreateUser(userId);
+        entity.setUpdateTime(now);
+        entity.setUpdateUser(userId);
+        return entity;
     }
 
     private void checkBatchNo(List<MoveVo> moveVos, List<MoveVo> errorList) {

@@ -16,6 +16,7 @@ import com.senmol.mes.warehouse.service.StorageService;
 import com.senmol.mes.warehouse.vo.Inventory;
 import com.senmol.mes.warehouse.vo.StorageInfo;
 import com.senmol.mes.warehouse.vo.StorageVo;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,7 +30,7 @@ import java.io.IOException;
  * @author makejava
  * @since 2023-07-24 15:58:02
  */
-@Validated
+@Slf4j
 @RestController
 @RequestMapping("warehouse/storage")
 public class StorageController {
@@ -186,7 +187,7 @@ public class StorageController {
             // 返回导入失败的数据
             return new SaResult(200, "导入成功", listener.getFailList());
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("导入失败", e);
             return SaResult.error("导入失败，请检查模版是否正确");
         }
     }

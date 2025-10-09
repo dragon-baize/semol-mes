@@ -33,6 +33,14 @@ public interface RetrievalService extends IService<RetrievalEntity> {
     Page<RetrievalEntity> selectAll(Page<RetrievalEntity> page, RetrievalEntity retrieval);
 
     /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    int getTodayCount(String date);
+
+    /**
      * 新增数据
      *
      * @param info 实体对象

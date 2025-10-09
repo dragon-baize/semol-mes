@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.senmol.mes.plan.entity.PurchaseReturns;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -30,6 +31,15 @@ public interface PurchaseReturnsMapper extends BaseMapper<PurchaseReturns> {
      * @param invoice    开票ID
      */
     void setInvoices(@Param("returnsIds") List<Long> returnsIds, @Param("invoice") Long invoice);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM plan_purchase_returns WHERE DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 

@@ -246,7 +246,7 @@
 
     <select id="selectDeliveryTotal" resultType="com.senmol.mes.plan.vo.DeliveryVoTotal">
         SELECT
-            IFNULL( SUM( qty ), 0 ) AS totalQty,
+            IFNULL( SUM( IF ( type = 3, 0, qty ) ), 0 ) AS totalQty,
             IFNULL( SUM( price ), 0 ) AS totalPrice,
             IFNULL( SUM( price * qty ), 0 ) AS totalAmount,
             IFNULL( SUM( tax_price ), 0 ) AS totalTaxPrice,
@@ -266,14 +266,19 @@
             <if test="pojo.productId != null">
                 AND product_id = #{pojo.productId}
             </if>
+            <if test="type != null">
+                <if test="type > 0">
+                    AND type = #{type}
+                </if>
+                <if test="type == -1">
+                    AND type IN (1, 3)
+                </if>
+            </if>
             <if test="startTime != null">
                 AND DATE(create_time) >= #{startTime}
             </if>
             <if test="endTime != null">
                 AND DATE(create_time) <![CDATA[<=]]> #{endTime}
-            </if>
-            <if test="type != null">
-                AND type = #{type}
             </if>
         </where>
     </select>

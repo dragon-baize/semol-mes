@@ -19,10 +19,10 @@
             om.serial_no
     </select>
 
-    <select id="getBaseMaterial" resultType="cn.hutool.core.lang.Dict">
+    <select id="getBaseMaterial" resultType="com.senmol.mes.common.utils.CountVo">
         SELECT
-            om.material_id,
-            om.qty * #{count} AS qty
+            om.material_id AS aId,
+            om.qty AS qty
         FROM
             work_order_mx mx
                 LEFT JOIN work_order_material om ON om.mx_id = mx.id

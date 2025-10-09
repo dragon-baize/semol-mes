@@ -1,9 +1,6 @@
 package com.senmol.mes.plan.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateTime;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -22,7 +19,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -71,15 +68,9 @@ public class PurchaseReturnsServiceImpl extends ServiceImpl<PurchaseReturnsMappe
             return SaResult.error("批次号重复");
         }
 
-        Date date = new Date();
-        DateTime beginOfDay = DateUtil.beginOfDay(date);
-        DateTime endOfDay = DateUtil.endOfDay(date);
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
-        Long count = this.lambdaQuery()
-                .between(PurchaseReturns::getCreateTime, beginOfDay, endOfDay)
-                .count();
-        purchaseReturns.setOrderNo("CGTH" + format + (101 + count * 3));
-
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        purchaseReturns.setOrderNo("CGTH" + date.replace("-", "") + (101 + count * 3));
         this.save(purchaseReturns);
         return SaResult.ok(ResultEnum.INSERT_SUCCESS.getMsg());
     }

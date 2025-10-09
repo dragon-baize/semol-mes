@@ -2,8 +2,6 @@ package com.senmol.mes.plan.service.impl;
 
 import cn.dev33.satoken.util.SaResult;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -22,7 +20,11 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.math.BigDecimal;
-import java.util.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -44,7 +46,7 @@ public class RequisitionServiceImpl extends ServiceImpl<RequisitionMapper, Requi
         CompletableFuture<List<RequisitionVo>> selectAll =
                 CompletableFuture.supplyAsync(() -> this.baseMapper.selectAll(page, requisition, keyword),
                         this.executor).exceptionally(e -> {
-                            e.printStackTrace();
+                            log.error("请购单列表查询失败", e);
                             throw new BusinessException("请购单列表查询失败，请重试");
                         });
 
@@ -57,7 +59,7 @@ public class RequisitionServiceImpl extends ServiceImpl<RequisitionMapper, Requi
                 CompletableFuture.supplyAsync(() -> this.baseMapper.selectTotal(page.getStartTime(),
                                 page.getEndTime(), requisition, keyword), this.executor)
                         .exceptionally(e -> {
-                            e.printStackTrace();
+                            log.error("合计统计失败", e);
                             throw new BusinessException("合计统计失败，请重试");
                         });
 
@@ -77,9 +79,9 @@ public class RequisitionServiceImpl extends ServiceImpl<RequisitionMapper, Requi
 
     @Override
     public SaResult saveRequisition(RequisitionEntity requisition) {
-        Date date = new Date();
-        Long count = this.lambdaQuery().between(RequisitionEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        requisition.setCode("QGD" + DateUtil.format(date, DatePattern.PURE_DATE_PATTERN) + (101 + count * 3));
+        String date = LocalDate.now().toString();
+        int count = this.baseMapper.getTodayCount(date);
+        requisition.setCode("QGD" + date.replace("-", "") + (101 + count * 3));
         this.save(requisition);
 
         if (requisition.getMrp() == 0) {
@@ -112,9 +114,9 @@ public class RequisitionServiceImpl extends ServiceImpl<RequisitionMapper, Requi
             return SaResult.error("MRP对应的请购单已创建");
         }
 
-        Date date = new Date();
-        Long total = this.lambdaQuery().between(RequisitionEntity::getCreateTime, DateUtil.beginOfDay(date), DateUtil.endOfDay(date)).count();
-        String format = DateUtil.format(date, DatePattern.PURE_DATE_PATTERN);
+        String date = LocalDate.now().toString();
+        int total = this.baseMapper.getTodayCount(date);
+        String format = date.replace("-", "");
 
         // 同种物料数据合并
         Map<Long, RequisitionEntity> map = MapUtil.newHashMap(requisitions.size());

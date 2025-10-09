@@ -7,6 +7,7 @@ import com.senmol.mes.workorder.entity.WorkOrderMxMaterialEntity;
 import com.senmol.mes.workorder.vo.OrderInfo;
 import com.senmol.mes.workorder.vo.OrderMaterial;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 import java.util.Set;
@@ -66,6 +67,15 @@ public interface WorkOrderMxMaterialMapper extends BaseMapper<WorkOrderMxMateria
      * @return 结果
      */
     List<OrderInfo> retrospect(@Param("batchNo") String batchNo);
+
+    /**
+     * 当天已生成的code数量
+     *
+     * @param date 日期
+     * @return 数量
+     */
+    @Select("SELECT count(*) FROM work_order_mx WHERE is_free = 1 AND DATE(create_time) = #{date} FOR UPDATE")
+    int getTodayCount(@Param("date") String date);
 
 }
 
